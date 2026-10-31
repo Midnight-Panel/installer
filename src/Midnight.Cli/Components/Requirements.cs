@@ -38,16 +38,25 @@ public static class Requirements
         _docker = true;
         if (!await IsDockerReadyAsync())
         {
-            var script = Path.Combine(Path.GetTempPath(), "get-docker.sh");
+            // Private temp directory (0700): a fixed name in /tmp could be prepared by another user and run as root
+            var directory = Shell.DryRun ? Path.GetTempPath() : Directory.CreateTempSubdirectory("midnight-").FullName;
+            var script = Path.Combine(directory, "get-docker.sh");
 
-            if (!Shell.DryRun)
+            try
             {
-                using var http = new HttpClient();
-                await File.WriteAllTextAsync(script, await http.GetStringAsync("https://get.docker.com"));
-            }
+                if (!Shell.DryRun)
+                {
+                    using var http = new HttpClient();
+                    await File.WriteAllTextAsync(script, await http.GetStringAsync("https://get.docker.com"));
+                }
 
-            await Shell.RunAsync("sh", script);
-            File.Delete(script);
+                await Shell.RunAsync("sh", script);
+            }
+            finally
+            {
+                if (!Shell.DryRun)
+                    Directory.Delete(directory, true);
+            }
         }
 
         await Shell.RunAsync("systemctl", "enable", "--now", "docker");
@@ -61,6 +70,11 @@ public static class Requirements
         if (host.PackageManager == "apt")
             await Shell.RunAsync("apt-get", ["install", "-y", "certbot"], new ShellOptions { Environment = new() { ["DEBIAN_FRONTEND"] = "noninteractive" } });
         else
+        {
             await Shell.RunAsync("dnf", "install", "-y", "certbot");
+
+            // Unlike the Debian package the renewal timer of the rpm is not enabled by default
+            await Shell.RunAsync("systemctl", ["enable", "--now", "certbot-renew.timer"], new ShellOptions { AllowFailure = true });
+        }
     }
 }

@@ -38,7 +38,8 @@ download() {
   if curl -fsSL -o "$work/SHA256SUMS" "$CLI_URL/SHA256SUMS" 2>/dev/null; then
     expected="$(awk -v f="midnight-linux-$arch" '$2 == f { print $1 }' "$work/SHA256SUMS")"
     actual="$(sha256sum "$work/midnight" | awk '{ print $1 }')"
-    [[ -z "$expected" || "$expected" == "$actual" ]] || fail "Checksum mismatch for midnight-linux-$arch"
+    [[ -n "$expected" ]] || fail "SHA256SUMS has no checksum for midnight-linux-$arch"
+    [[ "$expected" == "$actual" ]] || fail "Checksum mismatch for midnight-linux-$arch"
   fi
 }
 
@@ -63,8 +64,13 @@ fi
 install -m 755 "$work/midnight" "$TARGET"
 info "Installed $("$TARGET" version)"
 
-# Started through "curl | bash" stdin is the script, the wizard needs the terminal
-if [[ ! -t 0 && -r /dev/tty ]]; then
+# exec replaces the shell, so the EXIT trap would never remove the download (and a temporary .NET SDK)
+rm -rf "$work"
+trap - EXIT
+
+# Started through "curl | bash" stdin is the script, the wizard needs the terminal.
+# Only when it can really be opened: without a controlling terminal (cloud-init) /dev/tty exists but fails to open.
+if [[ ! -t 0 ]] && ( : </dev/tty ) 2>/dev/null; then
   exec "$TARGET" install "$@" </dev/tty
 fi
 

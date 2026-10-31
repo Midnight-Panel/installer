@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   test:
@@ -45,6 +45,9 @@ jobs:
     needs: build
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
+    # Only the job that publishes the release may write to the repository
+    permissions:
+      contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:

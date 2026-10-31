@@ -42,7 +42,7 @@ public class ConfigCommand : MidnightCommand<ConfigSettings>
                 if (!panelConfig.Success)
                     throw new InstallerException("The panel container is not running");
 
-                Print(panelConfig.Output, "Security", "JwtSecret");
+                Print(panelConfig.Output, ("Security", "JwtSecret"), ("Database", "ConnectionString"));
                 Ui.Hint($"Values in {PanelComponent.ComposeFile} (environment) override this file. Edit with: midnight config panel --edit");
                 return 0;
 
@@ -63,7 +63,7 @@ public class ConfigCommand : MidnightCommand<ConfigSettings>
                     return 0;
                 }
 
-                Print(await File.ReadAllTextAsync(Paths.DaemonConfig, cancellationToken), null, "token");
+                Print(await File.ReadAllTextAsync(Paths.DaemonConfig, cancellationToken), (null, "token"));
                 return 0;
 
             default:
@@ -71,13 +71,17 @@ public class ConfigCommand : MidnightCommand<ConfigSettings>
         }
     }
 
-    private static void Print(string json, string? section, string secret)
+    private static void Print(string json, params (string? Section, string Key)[] secrets)
     {
         var node = JsonNode.Parse(json)!.AsObject();
-        var target = section == null ? node : node[section]?.AsObject();
 
-        if (target?[secret] != null)
-            target[secret] = "***";
+        foreach (var (section, secret) in secrets)
+        {
+            var target = section == null ? node : node[section] as JsonObject;
+
+            if (target?[secret] != null)
+                target[secret] = "***";
+        }
 
         AnsiConsole.Write(new JsonText(node.ToJsonString()));
         AnsiConsole.WriteLine();

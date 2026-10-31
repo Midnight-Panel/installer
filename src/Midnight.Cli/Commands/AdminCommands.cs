@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using Midnight.Cli.Components;
 using Midnight.Cli.Core;
+using Spectre.Console;
 using Spectre.Console.Cli;
 
 namespace Midnight.Cli.Commands;
@@ -46,6 +47,7 @@ public class BackupCommand : MidnightCommand<BackupSettings>
         RequirePanel(state);
 
         var directory = Path.GetFullPath(settings.Directory ?? Paths.BackupDir);
+        var created = !System.IO.Directory.Exists(directory);
         var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
         var database = Path.Combine(directory, $"midnight-db-{stamp}.dump");
         var storage = $"midnight-storage-{stamp}.tar.gz";
@@ -53,7 +55,10 @@ public class BackupCommand : MidnightCommand<BackupSettings>
         if (!Shell.DryRun)
         {
             System.IO.Directory.CreateDirectory(directory);
-            File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+
+            // Only restrict a directory we created, an existing one (e.g. /tmp or a home) keeps its permissions
+            if (created || directory == Paths.BackupDir)
+                File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
 
         await Ui.StepAsync("Dumping the database", async () =>
@@ -68,8 +73,15 @@ public class BackupCommand : MidnightCommand<BackupSettings>
             "run", "--rm", "-v", "midnight_panel-storage:/data:ro", "-v", $"{directory}:/backup", "busybox:stable",
             "tar", "-czf", $"/backup/{storage}", "-C", "/data", "."));
 
-        Ui.Success($"Database: {database}");
-        Ui.Success($"Storage:  {Path.Combine(directory, storage)}");
+        // The dump and the storage contain password hashes and keys
+        if (!Shell.DryRun)
+        {
+            foreach (var file in new[] { database, Path.Combine(directory, storage) })
+                File.SetUnixFileMode(file, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+
+        Ui.Success($"Database: {Markup.Escape(database)}");
+        Ui.Success($"Storage:  {Markup.Escape(Path.Combine(directory, storage))}");
         Ui.Hint("Restore the database with: pg_restore -U midnight -d midnight --clean <dump>");
         return 0;
     }

@@ -74,7 +74,13 @@ public static class PanelComponent
         if (deleteData)
             arguments.Add("--volumes");
 
-        await Ui.StepAsync("Removing the containers", () => ComposeAsync([.. arguments]));
+        await Ui.StepAsync("Removing the containers", async () =>
+        {
+            await ComposeAsync([.. arguments]);
+
+            // "--rmi local" keeps images with a custom tag, so the locally built panel image is removed explicitly
+            await Shell.RunAsync("docker", ["image", "rm", "midnight/panel:local"], new ShellOptions { AllowFailure = true });
+        });
 
         if (deleteData && !Shell.DryRun && Directory.Exists(Paths.PanelDir))
             Directory.Delete(Paths.PanelDir, true);
@@ -148,7 +154,15 @@ public static class PanelComponent
         var envFile = Path.Combine(Paths.PanelDir, ".env");
         if (!File.Exists(envFile))
         {
-            await File.WriteAllTextAsync(envFile, $"POSTGRES_PASSWORD={RandomSecret(40)}\n");
+            // Created as 0600 right away, the password is never readable for other users
+            await using (var stream = new FileStream(envFile, new FileStreamOptions
+                         {
+                             Mode = FileMode.CreateNew, Access = FileAccess.Write,
+                             UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
+                         }))
+            await using (var writer = new StreamWriter(stream))
+                await writer.WriteAsync($"POSTGRES_PASSWORD={RandomSecret(40)}\n");
+
             File.SetUnixFileMode(envFile, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
 

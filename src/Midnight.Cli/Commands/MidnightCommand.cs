@@ -30,7 +30,8 @@ public abstract class MidnightCommand<TSettings> : AsyncCommand<TSettings> where
             if (RequiresRoot && !settings.DryRun && OperatingSystem.IsLinux() && !HostInfo.IsRoot)
                 throw new InstallerException($"This command needs root: sudo midnight {string.Join(' ', context.Arguments)}");
 
-            if (settings.DryRun)
+            // The installer shows it in its banner
+            if (settings.DryRun && this is not InstallCommand)
                 Ui.Warning("[yellow]Dry run[/], nothing is changed. Commands are only written to the log.");
 
             return await RunAsync(settings, InstallState.Load(), cancellationToken);

@@ -11,6 +11,7 @@ public class ValidationTests
     [InlineData("203.0.113.5", false)]
     [InlineData("-bad.example.com", false)]
     [InlineData("https://panel.example.com", false)]
+    [InlineData("panel.example.com\n", false)]
     public void Domain(string value, bool expected) => Assert.Equal(expected, Validation.IsDomain(value));
 
     [Theory]
@@ -26,6 +27,9 @@ public class ValidationTests
     [InlineData("admin@example.com", true)]
     [InlineData("admin@example", false)]
     [InlineData("no-at-sign.com", false)]
+    [InlineData("admin@example.com\n", false)]
+    [InlineData("admin}@example.com", false)]
+    [InlineData("\"admin\"@example.com", false)]
     public void Email(string value, bool expected) => Assert.Equal(expected, Validation.IsEmail(value));
 
     [Theory]

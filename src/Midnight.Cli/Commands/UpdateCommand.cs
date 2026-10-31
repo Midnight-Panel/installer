@@ -30,7 +30,7 @@ public class SelfUpdateCommand : MidnightCommand<GlobalSettings>
     {
         var url = "";
         await Ui.StepAsync("Downloading the newest midnight cli", async () => url = await SelfInstall.UpdateAsync());
-        Ui.Success($"Updated from {url}");
+        Ui.Success($"Updated from {Spectre.Console.Markup.Escape(url)}");
         return 0;
     }
 }

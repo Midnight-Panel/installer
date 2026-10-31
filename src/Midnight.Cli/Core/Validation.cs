@@ -5,13 +5,15 @@ namespace Midnight.Cli.Core;
 
 public static partial class Validation
 {
-    [GeneratedRegex(@"^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$", RegexOptions.IgnoreCase)]
+    // \z instead of $: "$" also matches before a trailing newline, which would end up in the Caddyfile and compose file
+    [GeneratedRegex(@"^(?=.{1,253}\z)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\z", RegexOptions.IgnoreCase)]
     private static partial Regex DomainRegex();
 
-    [GeneratedRegex(@"^[^\s@]+@[^\s@]+\.[^\s@]+$")]
+    // No quotes, braces or backslashes: the email is written into the Caddyfile
+    [GeneratedRegex(@"^[^\s@""'{}\\`]+@[^\s@""'{}\\`]+\.[^\s@""'{}\\`]+\z")]
     private static partial Regex EmailRegex();
 
-    [GeneratedRegex("^[a-zA-Z0-9_.-]{3,32}$")]
+    [GeneratedRegex(@"^[a-zA-Z0-9_.-]{3,32}\z")]
     private static partial Regex UsernameRegex();
 
     public static bool IsDomain(string value) => DomainRegex().IsMatch(value);

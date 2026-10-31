@@ -41,7 +41,8 @@ public static class DaemonComponent
         state.Daemon = new DaemonState { Ssl = settings.Ssl, Address = settings.Address, Port = settings.Port };
         state.Save();
 
-        await ConfigureAsync(state.Daemon, configFile);
+        // Reinstall: apply the new port/ssl settings to the existing configuration and restart onto the new binary
+        await ConfigureAsync(state.Daemon, configFile ?? (File.Exists(Paths.DaemonConfig) ? Paths.DaemonConfig : null));
     }
 
     public static async Task UpdateAsync(HostInfo host, InstallState state)
@@ -122,7 +123,19 @@ public static class DaemonComponent
                 return;
 
             Directory.CreateDirectory(Paths.EtcDir);
-            await File.WriteAllTextAsync(Paths.DaemonConfig, merged);
+
+            // The file holds the node token: created as 0600, an existing file is restricted before it gets the new token
+            if (File.Exists(Paths.DaemonConfig))
+                File.SetUnixFileMode(Paths.DaemonConfig, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+
+            await using (var stream = new FileStream(Paths.DaemonConfig, new FileStreamOptions
+                         {
+                             Mode = FileMode.Create, Access = FileAccess.Write,
+                             UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
+                         }))
+            await using (var writer = new StreamWriter(stream))
+                await writer.WriteAsync(merged);
+
             File.SetUnixFileMode(Paths.DaemonConfig, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         });
 
@@ -139,8 +152,9 @@ public static class DaemonComponent
 
     private static string? ReadPastedConfiguration()
     {
-        Spectre.Console.AnsiConsole.MarkupLine("\n  [bold]Paste the setup command or config.json from the node's setup tab in the panel.[/]");
-        Ui.Hint("Finish with an empty line. Press enter right away to skip.");
+        Ui.Section("Connect to the panel");
+        Spectre.Console.AnsiConsole.MarkupLine("  Paste the setup command or [bold]config.json[/] from the node's setup tab in the panel.");
+        Ui.Hint("Finish with an empty line. Press enter right away to skip and run midnight configure daemon later.");
         Spectre.Console.AnsiConsole.WriteLine();
 
         var input = new System.Text.StringBuilder();

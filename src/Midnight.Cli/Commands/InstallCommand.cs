@@ -3,6 +3,7 @@ using Midnight.Cli.Components;
 using Midnight.Cli.Core;
 using Spectre.Console;
 using Spectre.Console.Cli;
+using Spectre.Console.Rendering;
 
 namespace Midnight.Cli.Commands;
 
@@ -67,7 +68,7 @@ public class InstallCommand : MidnightCommand<InstallSettings>
 {
     protected override async Task<int> RunAsync(InstallSettings settings, InstallState state, CancellationToken cancellationToken)
     {
-        Ui.Banner($"Installer v{AppInfo.Version} · open-source game & app server hosting");
+        Ui.Banner($"Installer v{AppInfo.Version}");
 
         var host = await HostInfo.DetectAsync();
 
@@ -126,25 +127,25 @@ public class InstallCommand : MidnightCommand<InstallSettings>
 
     private static string AskTarget(InstallState state)
     {
-        var options = new List<(string Key, string Label)>
+        var options = new List<(string Key, string Label, string Description)>
         {
-            ("panel", "Install the panel"),
-            ("daemon", "Install the daemon (node)"),
-            ("all", "Install panel + daemon on this server")
+            ("panel", "Panel", "web interface, database and HTTPS proxy"),
+            ("daemon", "Daemon", "turns this server into a node for game servers"),
+            ("all", "Panel + Daemon", "everything on this one server")
         };
 
         if (state.HasAnything)
         {
-            options.Add(("update", "Update the installation"));
+            options.Add(("update", "Update", "pull the latest version and restart"));
             if (state.Daemon != null)
-                options.Add(("configure", "Paste a new daemon configuration"));
-            options.Add(("uninstall", "Uninstall"));
+                options.Add(("configure", "Configure daemon", "paste a new configuration from the panel"));
+            options.Add(("uninstall", "Uninstall", "remove the panel or the daemon"));
         }
 
-        options.Add(("exit", "Exit"));
+        options.Add(("exit", "Exit", ""));
 
         AnsiConsole.WriteLine();
-        var choice = Ui.Choose("What do you want to do?", options, x => x.Label).Key;
+        var choice = Ui.Choose("What do you want to install?", options, x => x.Label, x => x.Description.Length > 0 ? x.Description : null).Key;
 
         if (choice == "exit")
             throw new InstallerAbortedException();
@@ -165,6 +166,7 @@ public class InstallCommand : MidnightCommand<InstallSettings>
                 break;
 
             case "configure":
+                RequireDaemon(state);
                 await DaemonComponent.ConfigureAsync(state.Daemon!, null);
                 break;
 
@@ -205,6 +207,9 @@ public class InstallCommand : MidnightCommand<InstallSettings>
         else
         {
             panel.HttpPort = options.HttpPort ?? Ui.AskPort("HTTP port of the panel", 80, "--http-port");
+
+            if (!Validation.IsPort(panel.HttpPort))
+                throw new InstallerException($"{panel.HttpPort} is no valid port (1-65535)");
         }
 
         Ui.Section("Administrator");
@@ -219,6 +224,9 @@ public class InstallCommand : MidnightCommand<InstallSettings>
 
         panel.AdminUsername = options.AdminUsername
                               ?? Ui.Ask("Username", Validation.UsernameFromEmail(panel.AdminEmail), v => Validation.IsUsername(v) ? null : "3-32 characters: letters, numbers, . _ -");
+
+        if (!Validation.IsUsername(panel.AdminUsername))
+            throw new InstallerException($"'{panel.AdminUsername}' is no valid username (3-32 characters: letters, numbers, . _ -)");
 
         panel.AdminPassword = Environment.GetEnvironmentVariable("MIDNIGHT_ADMIN_PASSWORD") ?? AskNewPassword();
 
@@ -244,6 +252,9 @@ public class InstallCommand : MidnightCommand<InstallSettings>
 
         daemon.Address = await AskAddressAsync("Address of this node", daemon.Ssl, options.DaemonAddress, host, "--daemon-address");
         daemon.Port = options.DaemonPort ?? Ui.AskPort("Daemon port", 8080, "--daemon-port");
+
+        if (!Validation.IsPort(daemon.Port))
+            throw new InstallerException($"{daemon.Port} is no valid port (1-65535)");
 
         Ui.Hint($"Create the node in the panel with FQDN [bold]{Markup.Escape(daemon.Address)}[/], port {daemon.Port} and SSL {(daemon.Ssl ? "on" : "off")}.");
         Ui.Hint("Its setup tab shows the configuration you paste at the end of the installation.");
@@ -303,15 +314,21 @@ public class InstallCommand : MidnightCommand<InstallSettings>
 
     private static void PrintHost(HostInfo host, InstallState state)
     {
-        Ui.Info($"System     [bold]{Markup.Escape(host.OsName)}[/] · {host.Architecture} · {host.MemoryGb:0.0} GB RAM");
-        Ui.Info($"Public IP  [bold]{host.PublicIp}[/]");
-        Ui.Info($"Installed  Panel {(state.Panel != null ? "[green]yes[/]" : "[grey]no[/]")} · Daemon {(state.Daemon != null ? "[green]yes[/]" : "[grey]no[/]")}");
-        Ui.Hint($"Log file: {Markup.Escape(InstallerLog.Path)}");
+        static string Installed(bool yes) => yes ? "[green]● installed[/]" : "[grey]○ not installed[/]";
+
+        Ui.Box("This server", Ui.KeyValues(
+        [
+            ("System", $"[bold]{Markup.Escape(host.OsName)}[/] [grey]·[/] {host.Architecture} [grey]·[/] {host.MemoryGb:0.0} GB RAM"),
+            ("Public IP", host.PublicIp.Length > 0 ? $"[bold]{Markup.Escape(host.PublicIp)}[/]" : "[grey]unknown[/]"),
+            ("Panel", Installed(state.Panel != null)),
+            ("Daemon", Installed(state.Daemon != null)),
+            ("Log file", $"[grey]{Markup.Escape(InstallerLog.Path)}[/]")
+        ]));
     }
 
     private static void PrintSummary(PanelSettings? panel, DaemonSettings? daemon, string? source)
     {
-        Ui.Section("Summary");
+        AnsiConsole.WriteLine();
         var rows = new List<(string, string)>();
 
         if (panel != null)
@@ -342,27 +359,59 @@ public class InstallCommand : MidnightCommand<InstallSettings>
 
     private static void PrintFinish(PanelSettings? panel, DaemonSettings? daemon)
     {
-        Ui.Section("Done");
+        var rows = new List<(string, string)>();
+        var next = new List<string>();
 
         if (panel != null)
         {
-            Ui.Success($"Panel: [bold link]{Markup.Escape(panel.Url)}[/]");
-            Ui.Hint($"Sign in as {Markup.Escape(panel.AdminEmail)}");
+            rows.Add(("Panel", $"[bold {Ui.Brand} link]{Markup.Escape(panel.Url)}[/]"));
+            rows.Add(("Sign in", Markup.Escape(panel.AdminEmail)));
+
             if (panel.Ssl)
-                Ui.Hint("The certificate is requested on the first visit, that can take a few seconds.");
+                next.Add("Open the panel, the certificate is requested on the first visit (a few seconds).");
         }
 
         if (daemon != null)
         {
-            Ui.Success($"Daemon: {Markup.Escape($"{(daemon.Ssl ? "https" : "http")}://{daemon.Address}:{daemon.Port}")}");
+            if (rows.Count > 0)
+                rows.Add(("", ""));
+
+            rows.Add(("Daemon", $"[bold]{Markup.Escape($"{(daemon.Ssl ? "https" : "http")}://{daemon.Address}:{daemon.Port}")}[/]"));
+
             if (!File.Exists(Paths.DaemonConfig))
-                Ui.Hint("Next: create the node in the panel and run [bold]midnight configure daemon[/]");
-            Ui.Hint($"Open port {daemon.Port} and the ports of your game servers in your firewall.");
+                next.Add("Create the node in the panel, then run [bold]midnight configure daemon[/].");
+
+            next.Add($"Open port {daemon.Port} and the ports of your game servers in the firewall.");
+        }
+
+        var content = new List<IRenderable> { Ui.KeyValues(rows) };
+
+        if (next.Count > 0)
+        {
+            content.Add(new Text(""));
+            content.Add(new Markup("[bold]Next steps[/]"));
+
+            // Own column for the numbers, so wrapped lines stay aligned with the text
+            var steps = new Grid().AddColumn(new GridColumn().NoWrap().PadRight(1)).AddColumn();
+            foreach (var (step, index) in next.Select((step, index) => (step, index)))
+                steps.AddRow($"[{Ui.Brand}]{index + 1}.[/]", step);
+            content.Add(steps);
         }
 
         AnsiConsole.WriteLine();
+        Ui.Box("✔ Installation complete", new Rows(content), Color.Green);
+
+        AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine("  [grey]Manage everything with the[/] [bold]midnight[/] [grey]command:[/]");
-        Ui.Hint("midnight status · midnight logs panel -f · midnight restart daemon · midnight update · midnight --help");
+        AnsiConsole.WriteLine();
+
+        var commands = new Grid().AddColumn(new GridColumn().PadLeft(4).PadRight(3).NoWrap()).AddColumn();
+        commands.AddRow("[bold]midnight status[/]", "[grey]health of everything installed[/]");
+        commands.AddRow("[bold]midnight logs panel -f[/]", "[grey]follow the logs[/]");
+        commands.AddRow("[bold]midnight restart daemon[/]", "[grey]start, stop or restart[/]");
+        commands.AddRow("[bold]midnight update[/]", "[grey]update to the latest version[/]");
+        commands.AddRow("[bold]midnight doctor[/]", "[grey]find and fix problems[/]");
+        AnsiConsole.Write(commands);
         AnsiConsole.WriteLine();
     }
 }

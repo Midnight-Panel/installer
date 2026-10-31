@@ -6,5 +6,7 @@
     <LangVersion>latest</LangVersion>
     <Version>1.0.0</Version>
     <Authors>Midnight-Panel</Authors>
+    <!-- English only: no localized framework/package messages -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 </Project>

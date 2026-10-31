@@ -81,7 +81,7 @@ public static class SourceManager
         if (Directory.Exists(target) && !Shell.DryRun)
             Directory.Delete(target, true);
 
-        await Shell.RunAsync("git", "clone", "--depth", "1", "--branch", branch, url, target);
+        await Shell.RunAsync("git", "clone", "--depth", "1", "--branch", branch, "--", url, target);
     }
 
     private static void CopyDirectory(string from, string to)
