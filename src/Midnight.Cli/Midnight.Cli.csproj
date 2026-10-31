@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Midnight.Cli</RootNamespace>
+    <AssemblyName>midnight</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Smaller single-file release binary -->
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Midnight.Cli.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Spectre.Console" Version="0.57.2" />
+    <PackageReference Include="Spectre.Console.Cli" Version="0.57.2" />
+    <PackageReference Include="Spectre.Console.Json" Version="0.57.2" />
+  </ItemGroup>
+
+</Project>

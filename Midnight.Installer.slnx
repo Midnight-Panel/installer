@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Midnight.Cli/Midnight.Cli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Midnight.Cli.Tests/Midnight.Cli.Tests.csproj" />
+  </Folder>
+</Solution>
