@@ -31,20 +31,20 @@ public class StatusCommand : MidnightCommand<GlobalSettings>
             }
         }
 
-        if (state.Daemon != null)
+        if (state.Demon != null)
         {
-            var service = (await Shell.RunAsync("systemctl", ["is-active", Paths.DaemonService], new ShellOptions { AllowFailure = true })).Output.Trim();
-            var details = Markup.Escape(state.Daemon.Url);
+            var service = (await Shell.RunAsync("systemctl", ["is-active", Paths.DemonService], new ShellOptions { AllowFailure = true })).Output.Trim();
+            var details = Markup.Escape(state.Demon.Url);
 
-            if (!File.Exists(Paths.DaemonConfig))
-                details += "\n[yellow]not configured, run: midnight configure daemon[/]";
-            else if (!await DaemonComponent.IsConnectedToPanelAsync())
+            if (!File.Exists(Paths.DemonConfig))
+                details += "\n[yellow]not configured, run: midnight configure demon[/]";
+            else if (!await DemonComponent.IsConnectedToPanelAsync())
                 details += "\n[yellow]no connection to the panel yet[/]";
 
-            if (state.Daemon.Ssl && CertificateExpiry(state.Daemon.Address) is { } expiry)
+            if (state.Demon.Ssl && CertificateExpiry(state.Demon.Address) is { } expiry)
                 details += $"\n[grey]certificate valid until {expiry:yyyy-MM-dd}[/]";
 
-            table.AddRow("[bold]Daemon[/]", Health(await DaemonComponent.IsHealthyAsync(state.Daemon)), details);
+            table.AddRow("[bold]Demon[/]", Health(await DemonComponent.IsHealthyAsync(state.Demon)), details);
             table.AddRow("  [grey]service[/]", service == "active" ? "[green]active[/]" : $"[red]{Markup.Escape(service)}[/]", "");
         }
 

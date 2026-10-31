@@ -8,11 +8,11 @@ public class InstallState
 {
     public string InstallerVersion { get; set; } = "";
     public PanelState? Panel { get; set; }
-    public DaemonState? Daemon { get; set; }
+    public DemonState? Demon { get; set; }
     public SourceState Source { get; set; } = new();
 
     [JsonIgnore]
-    public bool HasAnything => Panel != null || Daemon != null;
+    public bool HasAnything => Panel != null || Demon != null;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
@@ -53,7 +53,7 @@ public class PanelState
     public string Url => Ssl ? $"https://{Address}" : HttpPort == 80 ? $"http://{Address}" : $"http://{Address}:{HttpPort}";
 }
 
-public class DaemonState
+public class DemonState
 {
     public bool Ssl { get; set; }
     public string Address { get; set; } = "";
@@ -68,7 +68,7 @@ public class SourceState
     /// <summary>"git" or "local"</summary>
     public string Mode { get; set; } = "git";
     public string PanelRepository { get; set; } = "";
-    public string DaemonRepository { get; set; } = "";
+    public string DemonRepository { get; set; } = "";
     public string Branch { get; set; } = "";
 }
 

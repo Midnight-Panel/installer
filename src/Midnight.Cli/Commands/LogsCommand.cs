@@ -8,7 +8,7 @@ namespace Midnight.Cli.Commands;
 public class LogsSettings : GlobalSettings
 {
     [CommandArgument(0, "<target>")]
-    [Description("panel, daemon, db, proxy or installer")]
+    [Description("panel, demon, db, proxy or installer")]
     public string Target { get; init; } = "";
 
     [CommandOption("-f|--follow")]
@@ -35,9 +35,9 @@ public class LogsCommand : MidnightCommand<LogsSettings>
                 await PanelComponent.ComposeAsync(["logs", "--tail", lines, .. Follow(settings, "-f"), service], interactive);
                 break;
 
-            case "daemon":
-                RequireDaemon(state);
-                await Shell.RunAsync("journalctl", ["-u", Paths.DaemonService, "-n", lines, "--no-pager", .. Follow(settings, "-f")], interactive);
+            case "demon":
+                RequireDemon(state);
+                await Shell.RunAsync("journalctl", ["-u", Paths.DemonService, "-n", lines, "--no-pager", .. Follow(settings, "-f")], interactive);
                 break;
 
             case "installer":
@@ -45,7 +45,7 @@ public class LogsCommand : MidnightCommand<LogsSettings>
                 break;
 
             default:
-                throw new InstallerException("Use: midnight logs panel|daemon|db|proxy|installer [-f] [-n 100]");
+                throw new InstallerException("Use: midnight logs panel|demon|db|proxy|installer [-f] [-n 100]");
         }
 
         return 0;

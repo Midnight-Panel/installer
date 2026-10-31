@@ -5,7 +5,7 @@ namespace Midnight.Cli.Components;
 /// <summary>System packages both components need</summary>
 public static class Requirements
 {
-    // "install all" runs panel and daemon setup in one process, each requirement is only needed once
+    // "install all" runs panel and demon setup in one process, each requirement is only needed once
     private static bool _basePackages, _docker;
 
     public static async Task InstallBasePackagesAsync(HostInfo host)

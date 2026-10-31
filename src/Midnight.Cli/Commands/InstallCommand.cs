@@ -10,7 +10,7 @@ namespace Midnight.Cli.Commands;
 public class InstallSettings : GlobalSettings
 {
     [CommandArgument(0, "[target]")]
-    [Description("panel, daemon or all. Without it an interactive menu is shown.")]
+    [Description("panel, demon or all. Without it an interactive menu is shown.")]
     public string? Target { get; init; }
 
     [CommandOption("--ssl")]
@@ -42,17 +42,17 @@ public class InstallSettings : GlobalSettings
     [Description("Allow anyone to register an account")]
     public bool? Registration { get; init; }
 
-    [CommandOption("--daemon-address <HOST>")]
+    [CommandOption("--demon-address <HOST>")]
     [Description("Domain or IP of this node")]
-    public string? DaemonAddress { get; init; }
+    public string? DemonAddress { get; init; }
 
-    [CommandOption("--daemon-port <PORT>")]
-    [Description("Daemon port (default 8080)")]
-    public int? DaemonPort { get; init; }
+    [CommandOption("--demon-port <PORT>")]
+    [Description("Demon port (default 8080)")]
+    public int? DemonPort { get; init; }
 
-    [CommandOption("--daemon-config <FILE>")]
+    [CommandOption("--demon-config <FILE>")]
     [Description("config.json or setup command from the node setup tab of the panel")]
-    public string? DaemonConfig { get; init; }
+    public string? DemonConfig { get; init; }
 
     [CommandOption("--source <DIR>")]
     [Description("Install from a local checkout containing panel/ and demon/ instead of git")]
@@ -82,31 +82,31 @@ public class InstallCommand : MidnightCommand<InstallSettings>
         if (target is "update" or "configure" or "uninstall")
             return await RunMaintenanceAsync(target, host, state);
 
-        var (installPanel, installDaemon) = target switch
+        var (installPanel, installDemon) = target switch
         {
             "panel" => (true, false),
-            "daemon" => (false, true),
+            "demon" => (false, true),
             "all" => (true, true),
-            _ => throw new InstallerException($"Unknown component '{target}', use panel, daemon or all")
+            _ => throw new InstallerException($"Unknown component '{target}', use panel, demon or all")
         };
 
         if (installPanel && state.Panel != null && !Ui.Confirm("The panel is already installed. Reinstall it (data is kept)?", false))
             return 0;
 
-        if (installDaemon && state.Daemon != null && !Ui.Confirm("The daemon is already installed. Reinstall it (server files are kept)?", false))
+        if (installDemon && state.Demon != null && !Ui.Confirm("The demon is already installed. Reinstall it (server files are kept)?", false))
             return 0;
 
         var panel = installPanel ? await CollectPanelAsync(settings, host) : null;
-        var daemon = installDaemon ? await CollectDaemonAsync(settings, host, panel) : null;
+        var demon = installDemon ? await CollectDemonAsync(settings, host, panel) : null;
         var source = settings.Source != null ? Path.GetFullPath(settings.Source) : null;
 
-        if (settings.DaemonConfig != null && !File.Exists(settings.DaemonConfig))
-            throw new InstallerException($"{settings.DaemonConfig} does not exist");
+        if (settings.DemonConfig != null && !File.Exists(settings.DemonConfig))
+            throw new InstallerException($"{settings.DemonConfig} does not exist");
 
         if (source != null && !Directory.Exists(Path.Combine(source, "panel")))
             throw new InstallerException($"{source} must contain the panel and demon folders");
 
-        PrintSummary(panel, daemon, source);
+        PrintSummary(panel, demon, source);
 
         if (!settings.Yes && !Ui.Confirm("Start the installation?"))
             return 0;
@@ -114,12 +114,12 @@ public class InstallCommand : MidnightCommand<InstallSettings>
         if (panel != null)
             await PanelComponent.InstallAsync(host, state, panel, source);
 
-        if (daemon != null)
-            await DaemonComponent.InstallAsync(host, state, daemon, source, settings.DaemonConfig);
+        if (demon != null)
+            await DemonComponent.InstallAsync(host, state, demon, source, settings.DemonConfig);
 
         await Ui.StepAsync("Installing the midnight command", SelfInstall.InstallAsync);
 
-        PrintFinish(panel, daemon);
+        PrintFinish(panel, demon);
         return 0;
     }
 
@@ -130,16 +130,16 @@ public class InstallCommand : MidnightCommand<InstallSettings>
         var options = new List<(string Key, string Label, string Description)>
         {
             ("panel", "Panel", "web interface, database and HTTPS proxy"),
-            ("daemon", "Daemon", "turns this server into a node for game servers"),
-            ("all", "Panel + Daemon", "everything on this one server")
+            ("demon", "Demon", "turns this server into a node for game servers"),
+            ("all", "Panel + Demon", "everything on this one server")
         };
 
         if (state.HasAnything)
         {
             options.Add(("update", "Update", "pull the latest version and restart"));
-            if (state.Daemon != null)
-                options.Add(("configure", "Configure daemon", "paste a new configuration from the panel"));
-            options.Add(("uninstall", "Uninstall", "remove the panel or the daemon"));
+            if (state.Demon != null)
+                options.Add(("configure", "Configure demon", "paste a new configuration from the panel"));
+            options.Add(("uninstall", "Uninstall", "remove the panel or the demon"));
         }
 
         options.Add(("exit", "Exit", ""));
@@ -160,20 +160,20 @@ public class InstallCommand : MidnightCommand<InstallSettings>
             case "update":
                 if (state.Panel != null)
                     await PanelComponent.UpdateAsync(state);
-                if (state.Daemon != null)
-                    await DaemonComponent.UpdateAsync(host, state);
+                if (state.Demon != null)
+                    await DemonComponent.UpdateAsync(host, state);
                 Ui.Success("Update finished");
                 break;
 
             case "configure":
-                RequireDaemon(state);
-                await DaemonComponent.ConfigureAsync(state.Daemon!, null);
+                RequireDemon(state);
+                await DemonComponent.ConfigureAsync(state.Demon!, null);
                 break;
 
             case "uninstall":
                 var targets = new List<string>();
                 if (state.Panel != null) targets.Add("panel");
-                if (state.Daemon != null) targets.Add("daemon");
+                if (state.Demon != null) targets.Add("demon");
 
                 var target = Ui.Choose("What do you want to uninstall?", targets.Append("cancel"), x => x);
                 if (target == "cancel")
@@ -238,28 +238,28 @@ public class InstallCommand : MidnightCommand<InstallSettings>
         return panel;
     }
 
-    private static async Task<DaemonSettings> CollectDaemonAsync(InstallSettings options, HostInfo host, PanelSettings? panel)
+    private static async Task<DemonSettings> CollectDemonAsync(InstallSettings options, HostInfo host, PanelSettings? panel)
     {
-        Ui.Section("Daemon");
+        Ui.Section("Demon");
 
-        var daemon = new DaemonSettings
+        var demon = new DemonSettings
         {
-            Ssl = options.Ssl ?? Ui.Confirm("Use SSL for the daemon (required when the panel uses https)?", panel?.Ssl ?? true)
+            Ssl = options.Ssl ?? Ui.Confirm("Use SSL for the demon (required when the panel uses https)?", panel?.Ssl ?? true)
         };
 
-        if (panel is { Ssl: true } && !daemon.Ssl)
-            Ui.Warning("Browsers block connections from an https panel to a daemon without SSL (console, files).");
+        if (panel is { Ssl: true } && !demon.Ssl)
+            Ui.Warning("Browsers block connections from an https panel to a demon without SSL (console, files).");
 
-        daemon.Address = await AskAddressAsync("Address of this node", daemon.Ssl, options.DaemonAddress, host, "--daemon-address");
-        daemon.Port = options.DaemonPort ?? Ui.AskPort("Daemon port", 8080, "--daemon-port");
+        demon.Address = await AskAddressAsync("Address of this node", demon.Ssl, options.DemonAddress, host, "--demon-address");
+        demon.Port = options.DemonPort ?? Ui.AskPort("Demon port", 8080, "--demon-port");
 
-        if (!Validation.IsPort(daemon.Port))
-            throw new InstallerException($"{daemon.Port} is no valid port (1-65535)");
+        if (!Validation.IsPort(demon.Port))
+            throw new InstallerException($"{demon.Port} is no valid port (1-65535)");
 
-        Ui.Hint($"Create the node in the panel with FQDN [bold]{Markup.Escape(daemon.Address)}[/], port {daemon.Port} and SSL {(daemon.Ssl ? "on" : "off")}.");
+        Ui.Hint($"Create the node in the panel with FQDN [bold]{Markup.Escape(demon.Address)}[/], port {demon.Port} and SSL {(demon.Ssl ? "on" : "off")}.");
         Ui.Hint("Its setup tab shows the configuration you paste at the end of the installation.");
 
-        return daemon;
+        return demon;
     }
 
     /// <summary>With SSL a domain is required, without SSL an IP or domain. Domains are checked against the DNS.</summary>
@@ -321,12 +321,12 @@ public class InstallCommand : MidnightCommand<InstallSettings>
             ("System", $"[bold]{Markup.Escape(host.OsName)}[/] [grey]·[/] {host.Architecture} [grey]·[/] {host.MemoryGb:0.0} GB RAM"),
             ("Public IP", host.PublicIp.Length > 0 ? $"[bold]{Markup.Escape(host.PublicIp)}[/]" : "[grey]unknown[/]"),
             ("Panel", Installed(state.Panel != null)),
-            ("Daemon", Installed(state.Daemon != null)),
+            ("Demon", Installed(state.Demon != null)),
             ("Log file", $"[grey]{Markup.Escape(InstallerLog.Path)}[/]")
         ]));
     }
 
-    private static void PrintSummary(PanelSettings? panel, DaemonSettings? daemon, string? source)
+    private static void PrintSummary(PanelSettings? panel, DemonSettings? demon, string? source)
     {
         AnsiConsole.WriteLine();
         var rows = new List<(string, string)>();
@@ -340,24 +340,24 @@ public class InstallCommand : MidnightCommand<InstallSettings>
             rows.Add(("Database", "PostgreSQL 17 (docker)"));
         }
 
-        if (daemon != null)
+        if (demon != null)
         {
             if (panel != null)
                 rows.Add(("", ""));
 
-            rows.Add(("Daemon", $"[bold]{Markup.Escape($"{(daemon.Ssl ? "https" : "http")}://{daemon.Address}:{daemon.Port}")}[/]"));
-            rows.Add(("SSL", daemon.Ssl ? "yes, Let's Encrypt via certbot (auto renew)" : "no"));
-            rows.Add(("Server data", Paths.DaemonData));
+            rows.Add(("Demon", $"[bold]{Markup.Escape($"{(demon.Ssl ? "https" : "http")}://{demon.Address}:{demon.Port}")}[/]"));
+            rows.Add(("SSL", demon.Ssl ? "yes, Let's Encrypt via certbot (auto renew)" : "no"));
+            rows.Add(("Server data", Paths.DemonData));
         }
 
         rows.Add(("", ""));
-        rows.Add(("Source", Markup.Escape(source ?? $"{Sources.PanelRepository}, {Sources.DaemonRepository} ({Sources.Branch})")));
+        rows.Add(("Source", Markup.Escape(source ?? $"{Sources.PanelRepository}, {Sources.DemonRepository} ({Sources.Branch})")));
 
         Ui.Summary(rows);
         AnsiConsole.WriteLine();
     }
 
-    private static void PrintFinish(PanelSettings? panel, DaemonSettings? daemon)
+    private static void PrintFinish(PanelSettings? panel, DemonSettings? demon)
     {
         var rows = new List<(string, string)>();
         var next = new List<string>();
@@ -371,17 +371,17 @@ public class InstallCommand : MidnightCommand<InstallSettings>
                 next.Add("Open the panel, the certificate is requested on the first visit (a few seconds).");
         }
 
-        if (daemon != null)
+        if (demon != null)
         {
             if (rows.Count > 0)
                 rows.Add(("", ""));
 
-            rows.Add(("Daemon", $"[bold]{Markup.Escape($"{(daemon.Ssl ? "https" : "http")}://{daemon.Address}:{daemon.Port}")}[/]"));
+            rows.Add(("Demon", $"[bold]{Markup.Escape($"{(demon.Ssl ? "https" : "http")}://{demon.Address}:{demon.Port}")}[/]"));
 
-            if (!File.Exists(Paths.DaemonConfig))
-                next.Add("Create the node in the panel, then run [bold]midnight configure daemon[/].");
+            if (!File.Exists(Paths.DemonConfig))
+                next.Add("Create the node in the panel, then run [bold]midnight configure demon[/].");
 
-            next.Add($"Open port {daemon.Port} and the ports of your game servers in the firewall.");
+            next.Add($"Open port {demon.Port} and the ports of your game servers in the firewall.");
         }
 
         var content = new List<IRenderable> { Ui.KeyValues(rows) };
@@ -408,7 +408,7 @@ public class InstallCommand : MidnightCommand<InstallSettings>
         var commands = new Grid().AddColumn(new GridColumn().PadLeft(4).PadRight(3).NoWrap()).AddColumn();
         commands.AddRow("[bold]midnight status[/]", "[grey]health of everything installed[/]");
         commands.AddRow("[bold]midnight logs panel -f[/]", "[grey]follow the logs[/]");
-        commands.AddRow("[bold]midnight restart daemon[/]", "[grey]start, stop or restart[/]");
+        commands.AddRow("[bold]midnight restart demon[/]", "[grey]start, stop or restart[/]");
         commands.AddRow("[bold]midnight update[/]", "[grey]update to the latest version[/]");
         commands.AddRow("[bold]midnight doctor[/]", "[grey]find and fix problems[/]");
         AnsiConsole.Write(commands);

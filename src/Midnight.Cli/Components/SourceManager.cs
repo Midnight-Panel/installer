@@ -3,8 +3,8 @@ using Midnight.Cli.Core;
 namespace Midnight.Cli.Components;
 
 /// <summary>
-/// Gets the panel and daemon sources into /opt/midnight/src. Both are needed next to each other
-/// because the daemon builds against panel/src/Midnight.Shared.
+/// Gets the panel and demon sources into /opt/midnight/src. Both are needed next to each other
+/// because the demon builds against panel/src/Midnight.Shared.
 /// </summary>
 public static class SourceManager
 {
@@ -60,13 +60,13 @@ public static class SourceManager
             {
                 Mode = "git",
                 PanelRepository = Sources.PanelRepository,
-                DaemonRepository = Sources.DaemonRepository,
+                DemonRepository = Sources.DemonRepository,
                 Branch = Sources.Branch
             };
         }
 
         await CloneOrPullAsync(state.Source.PanelRepository, Path.Combine(Paths.SourceDir, "panel"), state.Source.Branch);
-        await CloneOrPullAsync(state.Source.DaemonRepository, Path.Combine(Paths.SourceDir, "demon"), state.Source.Branch);
+        await CloneOrPullAsync(state.Source.DemonRepository, Path.Combine(Paths.SourceDir, "demon"), state.Source.Branch);
     }
 
     private static async Task CloneOrPullAsync(string url, string target, string branch)

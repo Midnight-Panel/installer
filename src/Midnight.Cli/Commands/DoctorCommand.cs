@@ -42,17 +42,17 @@ public class DoctorCommand : MidnightCommand<GlobalSettings>
             await Check("Proxy is running", async () => (await PanelComponent.ComposeAsync(["ps", "proxy"], new ShellOptions { AllowFailure = true })).Output.Contains("Up"), "midnight logs proxy");
         }
 
-        if (state.Daemon != null)
+        if (state.Demon != null)
         {
-            var daemon = state.Daemon;
-            await Check("Daemon service is active", () => Shell.SucceedsAsync("systemctl", "is-active", "--quiet", Paths.DaemonService), "midnight logs daemon");
-            await Check("Daemon is configured", () => Task.FromResult(File.Exists(Paths.DaemonConfig)), "midnight configure daemon");
-            await Check("Daemon answers", () => DaemonComponent.IsHealthyAsync(daemon), "midnight logs daemon");
-            await Check("Daemon reached the panel", DaemonComponent.IsConnectedToPanelAsync, "check panel url and token: midnight config daemon");
+            var demon = state.Demon;
+            await Check("Demon service is active", () => Shell.SucceedsAsync("systemctl", "is-active", "--quiet", Paths.DemonService), "midnight logs demon");
+            await Check("Demon is configured", () => Task.FromResult(File.Exists(Paths.DemonConfig)), "midnight configure demon");
+            await Check("Demon answers", () => DemonComponent.IsHealthyAsync(demon), "midnight logs demon");
+            await Check("Demon reached the panel", DemonComponent.IsConnectedToPanelAsync, "check panel url and token: midnight config demon");
 
-            if (daemon.Ssl)
+            if (demon.Ssl)
                 await Check("Certificate valid for 14 more days",
-                    () => Task.FromResult(StatusCommand.CertificateExpiry(daemon.Address) is { } expiry && expiry > DateTime.Now.AddDays(14)),
+                    () => Task.FromResult(StatusCommand.CertificateExpiry(demon.Address) is { } expiry && expiry > DateTime.Now.AddDays(14)),
                     "midnight ssl renew");
         }
 

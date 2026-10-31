@@ -9,12 +9,12 @@ public static class Paths
 
     public const string EtcDir = "/etc/midnight";
     public const string StateFile = EtcDir + "/midnight.json";
-    public const string DaemonConfig = EtcDir + "/config.json";
+    public const string DemonConfig = EtcDir + "/config.json";
 
-    public const string DaemonBinary = "/usr/local/bin/midnight-daemon";
-    public const string DaemonUnit = "/etc/systemd/system/midnight-daemon.service";
-    public const string DaemonService = "midnight-daemon";
-    public const string DaemonData = "/var/lib/midnight";
+    public const string DemonBinary = "/usr/local/bin/midnight-demon";
+    public const string DemonUnit = "/etc/systemd/system/midnight-demon.service";
+    public const string DemonService = "midnight-demon";
+    public const string DemonData = "/var/lib/midnight";
 
     public const string CliBinary = "/usr/local/bin/midnight";
     public const string LogFile = "/var/log/midnight-installer.log";
@@ -31,7 +31,7 @@ public static class Paths
 public static class Sources
 {
     public static string PanelRepository => Env("MIDNIGHT_PANEL_REPO", "https://github.com/Midnight-Panel/panel.git");
-    public static string DaemonRepository => Env("MIDNIGHT_DAEMON_REPO", "https://github.com/Midnight-Panel/demon.git");
+    public static string DemonRepository => Env("MIDNIGHT_DEMON_REPO", "https://github.com/Midnight-Panel/demon.git");
     public static string Branch => Env("MIDNIGHT_BRANCH", "main");
 
     /// <summary>Base url of the cli release binaries (midnight-linux-x64, midnight-linux-arm64)</summary>

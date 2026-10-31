@@ -61,29 +61,29 @@ public abstract class MidnightCommand<TSettings> : AsyncCommand<TSettings> where
             throw new InstallerException("The panel is not installed on this server");
     }
 
-    protected static void RequireDaemon(InstallState state)
+    protected static void RequireDemon(InstallState state)
     {
-        if (state.Daemon == null)
-            throw new InstallerException("The daemon is not installed on this server");
+        if (state.Demon == null)
+            throw new InstallerException("The demon is not installed on this server");
     }
 
-    /// <summary>"panel", "daemon" or "all" (everything installed)</summary>
-    protected static (bool Panel, bool Daemon) ResolveTarget(string? target, InstallState state)
+    /// <summary>"panel", "demon" or "all" (everything installed)</summary>
+    protected static (bool Panel, bool Demon) ResolveTarget(string? target, InstallState state)
     {
         switch (target?.ToLowerInvariant() ?? "all")
         {
             case "panel":
                 RequirePanel(state);
                 return (true, false);
-            case "daemon":
-                RequireDaemon(state);
+            case "demon":
+                RequireDemon(state);
                 return (false, true);
             case "all":
                 if (!state.HasAnything)
                     throw new InstallerException("Nothing is installed yet. Run: sudo midnight install");
-                return (state.Panel != null, state.Daemon != null);
+                return (state.Panel != null, state.Demon != null);
             default:
-                throw new InstallerException($"Unknown component '{target}', use panel, daemon or all");
+                throw new InstallerException($"Unknown component '{target}', use panel, demon or all");
         }
     }
 }
@@ -91,6 +91,6 @@ public abstract class MidnightCommand<TSettings> : AsyncCommand<TSettings> where
 public class TargetSettings : GlobalSettings
 {
     [CommandArgument(0, "[target]")]
-    [System.ComponentModel.Description("panel, daemon or all (default)")]
+    [System.ComponentModel.Description("panel, demon or all (default)")]
     public string? Target { get; init; }
 }

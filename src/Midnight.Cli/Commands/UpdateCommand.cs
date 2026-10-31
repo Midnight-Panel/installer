@@ -9,14 +9,14 @@ public class UpdateCommand : MidnightCommand<TargetSettings>
 {
     protected override async Task<int> RunAsync(TargetSettings settings, InstallState state, CancellationToken cancellationToken)
     {
-        var (panel, daemon) = ResolveTarget(settings.Target, state);
+        var (panel, demon) = ResolveTarget(settings.Target, state);
         var host = await HostInfo.DetectAsync();
 
         if (panel)
             await PanelComponent.UpdateAsync(state);
 
-        if (daemon)
-            await DaemonComponent.UpdateAsync(host, state);
+        if (demon)
+            await DemonComponent.UpdateAsync(host, state);
 
         Ui.Success("Update finished");
         Ui.Hint("Update the midnight command itself with: midnight self-update");
@@ -38,7 +38,7 @@ public class SelfUpdateCommand : MidnightCommand<GlobalSettings>
 public class ConfigureSettings : GlobalSettings
 {
     [CommandArgument(0, "<target>")]
-    [Description("daemon")]
+    [Description("demon")]
     public string Target { get; init; } = "";
 
     [CommandOption("--file <FILE>")]
@@ -50,11 +50,11 @@ public class ConfigureCommand : MidnightCommand<ConfigureSettings>
 {
     protected override async Task<int> RunAsync(ConfigureSettings settings, InstallState state, CancellationToken cancellationToken)
     {
-        if (settings.Target.ToLowerInvariant() != "daemon")
-            throw new InstallerException("Use: midnight configure daemon");
+        if (settings.Target.ToLowerInvariant() != "demon")
+            throw new InstallerException("Use: midnight configure demon");
 
-        RequireDaemon(state);
-        await DaemonComponent.ConfigureAsync(state.Daemon!, settings.File);
+        RequireDemon(state);
+        await DemonComponent.ConfigureAsync(state.Demon!, settings.File);
         return 0;
     }
 }

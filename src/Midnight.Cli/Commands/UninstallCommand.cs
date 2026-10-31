@@ -8,7 +8,7 @@ namespace Midnight.Cli.Commands;
 public class UninstallSettings : GlobalSettings
 {
     [CommandArgument(0, "<target>")]
-    [Description("panel or daemon")]
+    [Description("panel or demon")]
     public string Target { get; init; } = "";
 
     [CommandOption("--delete-data")]
@@ -35,16 +35,16 @@ public class UninstallCommand : MidnightCommand<UninstallSettings>
                 await PanelComponent.UninstallAsync(state, deleteData ?? Ui.Confirm("Also delete the database and all panel data? This can't be undone.", false));
                 break;
 
-            case "daemon":
-                if (state.Daemon == null)
-                    throw new InstallerException("The daemon is not installed");
+            case "demon":
+                if (state.Demon == null)
+                    throw new InstallerException("The demon is not installed");
 
                 Ui.Warning("Game servers are containers and keep running until you remove them.");
-                await DaemonComponent.UninstallAsync(state, deleteData ?? Ui.Confirm($"Also delete {Paths.DaemonData} (all server files) and the configuration?", false));
+                await DemonComponent.UninstallAsync(state, deleteData ?? Ui.Confirm($"Also delete {Paths.DemonData} (all server files) and the configuration?", false));
                 break;
 
             default:
-                throw new InstallerException("Use: midnight uninstall panel|daemon");
+                throw new InstallerException("Use: midnight uninstall panel|demon");
         }
 
         Ui.Success($"Uninstalled the {target}");

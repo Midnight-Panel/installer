@@ -9,7 +9,7 @@ public class ServiceCommand : MidnightCommand<TargetSettings>
 {
     protected override async Task<int> RunAsync(TargetSettings settings, InstallState state, CancellationToken cancellationToken)
     {
-        var (panel, daemon) = ResolveTarget(settings.Target, state);
+        var (panel, demon) = ResolveTarget(settings.Target, state);
 
         if (panel)
         {
@@ -17,8 +17,8 @@ public class ServiceCommand : MidnightCommand<TargetSettings>
             await Ui.StepAsync($"{Verb()} the panel", () => PanelComponent.ComposeAsync(arguments));
         }
 
-        if (daemon)
-            await Ui.StepAsync($"{Verb()} the daemon", () => Shell.RunAsync("systemctl", CommandName, Paths.DaemonService));
+        if (demon)
+            await Ui.StepAsync($"{Verb()} the demon", () => Shell.RunAsync("systemctl", CommandName, Paths.DemonService));
 
         return 0;
     }

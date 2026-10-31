@@ -49,14 +49,14 @@ public class PanelStackTests
     }
 }
 
-public class DaemonConfigurationTests
+public class DemonConfigurationTests
 {
     private const string PanelJson = """{"panelUrl":"https://panel.example.com","tokenId":"abc","token":"secret","httpPort":1234}""";
 
     [Fact]
     public void ExtractsJsonFromPastedText()
     {
-        var json = DaemonComponent.ExtractJson($"Copy this:\n{PanelJson}\n$ ");
+        var json = DemonComponent.ExtractJson($"Copy this:\n{PanelJson}\n$ ");
 
         Assert.NotNull(json);
         Assert.Equal("abc", JsonNode.Parse(json)!["tokenId"]!.GetValue<string>());
@@ -67,15 +67,15 @@ public class DaemonConfigurationTests
     [InlineData("no json here")]
     [InlineData("{ broken")]
     [InlineData("[1, 2]")]
-    public void RejectsInvalidInput(string input) => Assert.Null(DaemonComponent.ExtractJson(input));
+    public void RejectsInvalidInput(string input) => Assert.Null(DemonComponent.ExtractJson(input));
 
     [Fact]
     public void MergeAppliesLocalSettings()
     {
-        var merged = JsonNode.Parse(DaemonComponent.MergeConfiguration(PanelJson, new DaemonState { Ssl = true, Address = "node1.example.com", Port = 8443 }))!;
+        var merged = JsonNode.Parse(DemonComponent.MergeConfiguration(PanelJson, new DemonState { Ssl = true, Address = "node1.example.com", Port = 8443 }))!;
 
         Assert.Equal(8443, merged["httpPort"]!.GetValue<int>());
-        Assert.Equal(Paths.DaemonData, merged["dataPath"]!.GetValue<string>());
+        Assert.Equal(Paths.DemonData, merged["dataPath"]!.GetValue<string>());
         Assert.True(merged["ssl"]!["enabled"]!.GetValue<bool>());
         Assert.Equal("/etc/letsencrypt/live/node1.example.com/fullchain.pem", merged["ssl"]!["certificatePath"]!.GetValue<string>());
         Assert.Equal("secret", merged["token"]!.GetValue<string>());
@@ -83,14 +83,14 @@ public class DaemonConfigurationTests
 
     [Fact]
     public void MergeRequiresToken()
-        => Assert.Throws<InstallerException>(() => DaemonComponent.MergeConfiguration("""{"panelUrl":"https://panel.example.com","tokenId":"abc"}""", new DaemonState()));
+        => Assert.Throws<InstallerException>(() => DemonComponent.MergeConfiguration("""{"panelUrl":"https://panel.example.com","tokenId":"abc"}""", new DemonState()));
 
     [Fact]
-    public void UnitRunsTheDaemonBinary()
+    public void UnitRunsTheDemonBinary()
     {
-        var unit = DaemonComponent.BuildUnit();
+        var unit = DemonComponent.BuildUnit();
 
-        Assert.Contains($"ExecStart={Paths.DaemonBinary}", unit);
+        Assert.Contains($"ExecStart={Paths.DemonBinary}", unit);
         Assert.Contains("[Install]", unit);
     }
 }

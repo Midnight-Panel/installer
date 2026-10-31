@@ -4,7 +4,7 @@
 #
 #   bash <(curl -fsSL https://raw.githubusercontent.com/Midnight-Panel/installer/main/install.sh)
 #
-# All arguments are passed on, e.g. "install.sh daemon --ssl --daemon-address node1.example.com -y".
+# All arguments are passed on, e.g. "install.sh demon --ssl --demon-address node1.example.com -y".
 # Environment: MIDNIGHT_CLI_URL (release download base), MIDNIGHT_BUILD_FROM_SOURCE=1 (skip the download)
 
 set -Eeuo pipefail

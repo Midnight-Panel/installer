@@ -4,7 +4,7 @@ using Midnight.Cli.Core;
 
 namespace Midnight.Cli.Components;
 
-public class DaemonSettings
+public class DemonSettings
 {
     public bool Ssl { get; set; }
     public string Address { get; set; } = "";
@@ -12,18 +12,18 @@ public class DaemonSettings
 }
 
 /// <summary>
-/// The daemon is a self contained binary (/usr/local/bin/midnight-daemon) built from source inside a .NET SDK
+/// The demon is a self contained binary (/usr/local/bin/midnight-demon) built from source inside a .NET SDK
 /// container and run by systemd. With SSL certbot provides the certificate.
 /// </summary>
-public static class DaemonComponent
+public static class DemonComponent
 {
     private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
 
     // ─── Installation ────────────────────────────────────────────────────────
 
-    public static async Task InstallAsync(HostInfo host, InstallState state, DaemonSettings settings, string? localSource, string? configFile)
+    public static async Task InstallAsync(HostInfo host, InstallState state, DemonSettings settings, string? localSource, string? configFile)
     {
-        Ui.Section("Installing the daemon");
+        Ui.Section("Installing the demon");
 
         await Ui.StepAsync("Installing base packages", () => Requirements.InstallBasePackagesAsync(host));
         await Ui.StepAsync("Installing Docker", Requirements.InstallDockerAsync);
@@ -32,30 +32,30 @@ public static class DaemonComponent
             await Ui.StepAsync("Installing certbot", () => Requirements.InstallCertbotAsync(host));
 
         await Ui.StepAsync("Downloading the source code", () => SourceManager.FetchAsync(state, localSource));
-        await Ui.StepAsync("Building the daemon (takes a few minutes)", () => BuildAsync(host));
+        await Ui.StepAsync("Building the demon (takes a few minutes)", () => BuildAsync(host));
         await Ui.StepAsync("Installing the systemd service", WriteUnitAsync);
 
         if (settings.Ssl)
             await Ui.StepAsync($"Requesting a certificate for {settings.Address}", () => RequestCertificateAsync(settings.Address, state.Panel != null));
 
-        state.Daemon = new DaemonState { Ssl = settings.Ssl, Address = settings.Address, Port = settings.Port };
+        state.Demon = new DemonState { Ssl = settings.Ssl, Address = settings.Address, Port = settings.Port };
         state.Save();
 
         // Reinstall: apply the new port/ssl settings to the existing configuration and restart onto the new binary
-        await ConfigureAsync(state.Daemon, configFile ?? (File.Exists(Paths.DaemonConfig) ? Paths.DaemonConfig : null));
+        await ConfigureAsync(state.Demon, configFile ?? (File.Exists(Paths.DemonConfig) ? Paths.DemonConfig : null));
     }
 
     public static async Task UpdateAsync(HostInfo host, InstallState state)
     {
-        Ui.Section("Updating the daemon");
+        Ui.Section("Updating the demon");
 
         await Ui.StepAsync("Downloading the latest source code", () => SourceManager.FetchAsync(state, null));
-        await Ui.StepAsync("Building the daemon", () => BuildAsync(host));
+        await Ui.StepAsync("Building the demon", () => BuildAsync(host));
 
-        if (File.Exists(Paths.DaemonConfig))
+        if (File.Exists(Paths.DemonConfig))
         {
-            await Ui.StepAsync("Restarting the daemon", () => Shell.RunAsync("systemctl", "restart", Paths.DaemonService));
-            await Ui.StepAsync("Waiting for the daemon", () => WaitForHealthAsync(state.Daemon!));
+            await Ui.StepAsync("Restarting the demon", () => Shell.RunAsync("systemctl", "restart", Paths.DemonService));
+            await Ui.StepAsync("Waiting for the demon", () => WaitForHealthAsync(state.Demon!));
         }
 
         state.Save();
@@ -63,25 +63,25 @@ public static class DaemonComponent
 
     public static async Task UninstallAsync(InstallState state, bool deleteData)
     {
-        Ui.Section("Uninstalling the daemon");
+        Ui.Section("Uninstalling the demon");
 
         await Ui.StepAsync("Stopping the service", async () =>
         {
-            await Shell.RunAsync("systemctl", ["disable", "--now", Paths.DaemonService], new ShellOptions { AllowFailure = true });
-            DeleteFile(Paths.DaemonUnit);
-            DeleteFile(Paths.DaemonBinary);
+            await Shell.RunAsync("systemctl", ["disable", "--now", Paths.DemonService], new ShellOptions { AllowFailure = true });
+            DeleteFile(Paths.DemonUnit);
+            DeleteFile(Paths.DemonBinary);
             await Shell.RunAsync("systemctl", "daemon-reload");
         });
 
         if (deleteData && !Shell.DryRun)
         {
-            if (Directory.Exists(Paths.DaemonData))
-                Directory.Delete(Paths.DaemonData, true);
+            if (Directory.Exists(Paths.DemonData))
+                Directory.Delete(Paths.DemonData, true);
 
-            DeleteFile(Paths.DaemonConfig);
+            DeleteFile(Paths.DemonConfig);
         }
 
-        state.Daemon = null;
+        state.Demon = null;
         state.Save();
     }
 
@@ -89,9 +89,9 @@ public static class DaemonComponent
 
     /// <summary>
     /// Writes /etc/midnight/config.json from the configuration of the panel's node setup tab,
-    /// starts the daemon and checks that it reaches the panel.
+    /// starts the demon and checks that it reaches the panel.
     /// </summary>
-    public static async Task ConfigureAsync(DaemonState daemon, string? configFile)
+    public static async Task ConfigureAsync(DemonState demon, string? configFile)
     {
         string? json;
 
@@ -101,7 +101,7 @@ public static class DaemonComponent
         }
         else if (!Ui.Interactive)
         {
-            Ui.Warning("No --daemon-config given. Run [bold]midnight configure daemon[/] once the node exists in the panel.");
+            Ui.Warning("No --demon-config given. Run [bold]midnight configure demon[/] once the node exists in the panel.");
             return;
         }
         else
@@ -110,14 +110,14 @@ public static class DaemonComponent
 
             if (json == null)
             {
-                Ui.Warning("Skipped. Run [bold]midnight configure daemon[/] once the node exists in the panel.");
+                Ui.Warning("Skipped. Run [bold]midnight configure demon[/] once the node exists in the panel.");
                 return;
             }
         }
 
-        var merged = MergeConfiguration(json, daemon);
+        var merged = MergeConfiguration(json, demon);
 
-        await Ui.StepAsync($"Writing {Paths.DaemonConfig}", async () =>
+        await Ui.StepAsync($"Writing {Paths.DemonConfig}", async () =>
         {
             if (Shell.DryRun)
                 return;
@@ -125,10 +125,10 @@ public static class DaemonComponent
             Directory.CreateDirectory(Paths.EtcDir);
 
             // The file holds the node token: created as 0600, an existing file is restricted before it gets the new token
-            if (File.Exists(Paths.DaemonConfig))
-                File.SetUnixFileMode(Paths.DaemonConfig, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            if (File.Exists(Paths.DemonConfig))
+                File.SetUnixFileMode(Paths.DemonConfig, UnixFileMode.UserRead | UnixFileMode.UserWrite);
 
-            await using (var stream = new FileStream(Paths.DaemonConfig, new FileStreamOptions
+            await using (var stream = new FileStream(Paths.DemonConfig, new FileStreamOptions
                          {
                              Mode = FileMode.Create, Access = FileAccess.Write,
                              UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
@@ -136,25 +136,25 @@ public static class DaemonComponent
             await using (var writer = new StreamWriter(stream))
                 await writer.WriteAsync(merged);
 
-            File.SetUnixFileMode(Paths.DaemonConfig, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            File.SetUnixFileMode(Paths.DemonConfig, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         });
 
-        await Ui.StepAsync("Starting the daemon", () => Shell.RunAsync("systemctl", "restart", Paths.DaemonService));
-        await Ui.StepAsync("Waiting for the daemon", () => WaitForHealthAsync(daemon));
+        await Ui.StepAsync("Starting the demon", () => Shell.RunAsync("systemctl", "restart", Paths.DemonService));
+        await Ui.StepAsync("Waiting for the demon", () => WaitForHealthAsync(demon));
 
         await Task.Delay(Shell.DryRun ? 0 : 2000);
 
         if (await IsConnectedToPanelAsync())
-            Ui.Success("The daemon is connected to the panel");
+            Ui.Success("The demon is connected to the panel");
         else
-            Ui.Warning("The daemon runs but hasn't reached the panel yet. Check [bold]midnight logs daemon[/]");
+            Ui.Warning("The demon runs but hasn't reached the panel yet. Check [bold]midnight logs demon[/]");
     }
 
     private static string? ReadPastedConfiguration()
     {
         Ui.Section("Connect to the panel");
         Spectre.Console.AnsiConsole.MarkupLine("  Paste the setup command or [bold]config.json[/] from the node's setup tab in the panel.");
-        Ui.Hint("Finish with an empty line. Press enter right away to skip and run midnight configure daemon later.");
+        Ui.Hint("Finish with an empty line. Press enter right away to skip and run midnight configure demon later.");
         Spectre.Console.AnsiConsole.WriteLine();
 
         var input = new System.Text.StringBuilder();
@@ -191,7 +191,7 @@ public static class DaemonComponent
     }
 
     /// <summary>Takes the panel's configuration and applies the local settings (port, ssl paths, data path)</summary>
-    internal static string MergeConfiguration(string json, DaemonState daemon)
+    internal static string MergeConfiguration(string json, DemonState demon)
     {
         var config = JsonNode.Parse(json)!.AsObject();
 
@@ -201,16 +201,16 @@ public static class DaemonComponent
                 throw new InstallerException($"The configuration has no '{key}', copy it again from the node setup tab");
         }
 
-        var certificates = Paths.CertificateDir(daemon.Address);
+        var certificates = Paths.CertificateDir(demon.Address);
 
-        config["httpPort"] = daemon.Port;
-        config["dataPath"] = Paths.DaemonData;
+        config["httpPort"] = demon.Port;
+        config["dataPath"] = Paths.DemonData;
         config["dockerSocket"] ??= "unix:///var/run/docker.sock";
         config["ssl"] = new JsonObject
         {
-            ["enabled"] = daemon.Ssl,
-            ["certificatePath"] = daemon.Ssl ? $"{certificates}/fullchain.pem" : "",
-            ["keyPath"] = daemon.Ssl ? $"{certificates}/privkey.pem" : ""
+            ["enabled"] = demon.Ssl,
+            ["certificatePath"] = demon.Ssl ? $"{certificates}/fullchain.pem" : "",
+            ["keyPath"] = demon.Ssl ? $"{certificates}/privkey.pem" : ""
         };
 
         return config.ToJsonString(Indented);
@@ -218,7 +218,7 @@ public static class DaemonComponent
 
     // ─── Operations ──────────────────────────────────────────────────────────
 
-    public static async Task<bool> IsHealthyAsync(DaemonState daemon)
+    public static async Task<bool> IsHealthyAsync(DemonState demon)
     {
         try
         {
@@ -237,7 +237,7 @@ public static class DaemonComponent
             };
             using var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(3) };
 
-            return (await http.GetAsync($"{daemon.Url}/api/health")).IsSuccessStatusCode;
+            return (await http.GetAsync($"{demon.Url}/api/health")).IsSuccessStatusCode;
         }
         catch (Exception)
         {
@@ -247,27 +247,27 @@ public static class DaemonComponent
 
     public static async Task<bool> IsConnectedToPanelAsync()
     {
-        var journal = await Shell.RunAsync("journalctl", ["-u", Paths.DaemonService, "-n", "200", "--no-pager"], new ShellOptions { AllowFailure = true });
+        var journal = await Shell.RunAsync("journalctl", ["-u", Paths.DemonService, "-n", "200", "--no-pager"], new ShellOptions { AllowFailure = true });
         return Shell.DryRun || journal.Output.Contains("Connected to the panel");
     }
 
-    private static async Task WaitForHealthAsync(DaemonState daemon)
+    private static async Task WaitForHealthAsync(DemonState demon)
     {
         for (var attempt = 0; attempt < 30; attempt++)
         {
-            if (await IsHealthyAsync(daemon))
+            if (await IsHealthyAsync(demon))
                 return;
 
             await Task.Delay(TimeSpan.FromSeconds(2));
         }
 
-        await Shell.RunAsync("journalctl", ["-u", Paths.DaemonService, "-n", "40", "--no-pager"], new ShellOptions { AllowFailure = true });
-        throw new InstallerException("The daemon did not answer within 60 seconds");
+        await Shell.RunAsync("journalctl", ["-u", Paths.DemonService, "-n", "40", "--no-pager"], new ShellOptions { AllowFailure = true });
+        throw new InstallerException("The demon did not answer within 60 seconds");
     }
 
     private static async Task BuildAsync(HostInfo host)
     {
-        var output = Path.Combine(Paths.SourceDir, "out", "daemon");
+        var output = Path.Combine(Paths.SourceDir, "out", "demon");
 
         await Shell.RunAsync("docker",
         [
@@ -275,31 +275,31 @@ public static class DaemonComponent
             "-v", $"{Paths.SourceDir}:/src", "-w", "/src/demon",
             "-e", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "-e", "DOTNET_NOLOGO=1",
             "mcr.microsoft.com/dotnet/sdk:10.0",
-            "dotnet", "publish", "src/Midnight.Daemon", "-c", "Release", "-r", $"linux-{host.RuntimeArchitecture}",
+            "dotnet", "publish", "src/Midnight.Demon", "-c", "Release", "-r", $"linux-{host.RuntimeArchitecture}",
             "--self-contained", "-p:PublishSingleFile=true", "-p:IncludeNativeLibrariesForSelfExtract=true",
-            "-o", "/src/out/daemon"
+            "-o", "/src/out/demon"
         ]);
 
-        await Shell.RunAsync("install", "-m", "755", Path.Combine(output, "Midnight.Daemon"), Paths.DaemonBinary);
+        await Shell.RunAsync("install", "-m", "755", Path.Combine(output, "Midnight.Demon"), Paths.DemonBinary);
     }
 
     private static async Task WriteUnitAsync()
     {
         if (!Shell.DryRun)
         {
-            Directory.CreateDirectory(Paths.DaemonData);
+            Directory.CreateDirectory(Paths.DemonData);
             Directory.CreateDirectory(Paths.EtcDir);
             File.SetUnixFileMode(Paths.EtcDir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            await File.WriteAllTextAsync(Paths.DaemonUnit, BuildUnit());
+            await File.WriteAllTextAsync(Paths.DemonUnit, BuildUnit());
         }
 
         await Shell.RunAsync("systemctl", "daemon-reload");
-        await Shell.RunAsync("systemctl", "enable", Paths.DaemonService);
+        await Shell.RunAsync("systemctl", "enable", Paths.DemonService);
     }
 
     internal static string BuildUnit() => $"""
         [Unit]
-        Description=Midnight Daemon
+        Description=Midnight Demon
         Documentation=https://github.com/Midnight-Panel/demon
         After=network-online.target docker.service
         Wants=network-online.target
@@ -307,9 +307,9 @@ public static class DaemonComponent
 
         [Service]
         Type=notify
-        ExecStart={Paths.DaemonBinary}
-        Environment=MIDNIGHT_DAEMON_CONFIG={Paths.DaemonConfig}
-        WorkingDirectory={Paths.DaemonData}
+        ExecStart={Paths.DemonBinary}
+        Environment=MIDNIGHT_DEMON_CONFIG={Paths.DemonConfig}
+        WorkingDirectory={Paths.DemonData}
         Restart=on-failure
         RestartSec=5
         User=root
@@ -330,7 +330,7 @@ public static class DaemonComponent
         {
             "certonly", "--standalone", "--non-interactive", "--agree-tos", "--keep-until-expiring",
             "--register-unsafely-without-email", "-d", domain,
-            "--deploy-hook", $"systemctl restart {Paths.DaemonService}"
+            "--deploy-hook", $"systemctl restart {Paths.DemonService}"
         };
 
         if (panelOnSameServer)

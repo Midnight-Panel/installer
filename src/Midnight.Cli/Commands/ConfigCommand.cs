@@ -11,7 +11,7 @@ namespace Midnight.Cli.Commands;
 public class ConfigSettings : GlobalSettings
 {
     [CommandArgument(0, "<target>")]
-    [Description("panel or daemon")]
+    [Description("panel or demon")]
     public string Target { get; init; } = "";
 
     [CommandOption("-e|--edit")]
@@ -46,28 +46,28 @@ public class ConfigCommand : MidnightCommand<ConfigSettings>
                 Ui.Hint($"Values in {PanelComponent.ComposeFile} (environment) override this file. Edit with: midnight config panel --edit");
                 return 0;
 
-            case "daemon":
-                RequireDaemon(state);
+            case "demon":
+                RequireDemon(state);
 
-                if (!File.Exists(Paths.DaemonConfig))
-                    throw new InstallerException("No configuration yet, run: midnight configure daemon");
+                if (!File.Exists(Paths.DemonConfig))
+                    throw new InstallerException("No configuration yet, run: midnight configure demon");
 
                 if (settings.Edit)
                 {
-                    await Shell.RunAsync(editor, [Paths.DaemonConfig], new ShellOptions { Interactive = true });
+                    await Shell.RunAsync(editor, [Paths.DemonConfig], new ShellOptions { Interactive = true });
 
-                    if (DaemonComponent.ExtractJson(await File.ReadAllTextAsync(Paths.DaemonConfig, cancellationToken)) == null)
-                        throw new InstallerException("The file is no valid json anymore, the daemon was not restarted");
+                    if (DemonComponent.ExtractJson(await File.ReadAllTextAsync(Paths.DemonConfig, cancellationToken)) == null)
+                        throw new InstallerException("The file is no valid json anymore, the demon was not restarted");
 
-                    await Ui.StepAsync("Restarting the daemon", () => Shell.RunAsync("systemctl", "restart", Paths.DaemonService));
+                    await Ui.StepAsync("Restarting the demon", () => Shell.RunAsync("systemctl", "restart", Paths.DemonService));
                     return 0;
                 }
 
-                Print(await File.ReadAllTextAsync(Paths.DaemonConfig, cancellationToken), (null, "token"));
+                Print(await File.ReadAllTextAsync(Paths.DemonConfig, cancellationToken), (null, "token"));
                 return 0;
 
             default:
-                throw new InstallerException("Use: midnight config panel|daemon [--edit]");
+                throw new InstallerException("Use: midnight config panel|demon [--edit]");
         }
     }
 
