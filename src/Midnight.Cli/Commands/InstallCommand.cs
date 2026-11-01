@@ -58,6 +58,18 @@ public class InstallSettings : GlobalSettings
     [Description("Install from a local checkout containing panel/ and demon/ instead of git")]
     public string? Source { get; init; }
 
+    [CommandOption("--channel <CHANNEL>")]
+    [Description("release (a published version) or custom (newest code of the branch). Without it you are asked.")]
+    public string? Channel { get; init; }
+
+    [CommandOption("--panel-version <TAG>")]
+    [Description("Panel release to install, e.g. v1.2.0 (implies --channel release)")]
+    public string? PanelVersion { get; init; }
+
+    [CommandOption("--demon-version <TAG>")]
+    [Description("Demon release to install, e.g. v1.2.0 (implies --channel release)")]
+    public string? DemonVersion { get; init; }
+
     [CommandOption("-y|--yes")]
     [Description("Don't ask for confirmation")]
     public bool Yes { get; init; }
@@ -106,7 +118,11 @@ public class InstallCommand : MidnightCommand<InstallSettings>
         if (source != null && !Directory.Exists(Path.Combine(source, "panel")))
             throw new InstallerException($"{source} must contain the panel and demon folders");
 
-        PrintSummary(panel, demon, source);
+        // A local checkout is installed as it is, otherwise a release or the newest code
+        if (source == null)
+            await VersionSelector.SelectForInstallAsync(state, installPanel, installDemon, settings.Channel, settings.PanelVersion, settings.DemonVersion);
+
+        PrintSummary(panel, demon, source, state.Source);
 
         if (!settings.Yes && !Ui.Confirm("Start the installation?"))
             return 0;
@@ -158,6 +174,8 @@ public class InstallCommand : MidnightCommand<InstallSettings>
         switch (action)
         {
             case "update":
+                await VersionSelector.SelectForUpdateAsync(state, state.Panel != null, state.Demon != null, latest: false);
+
                 if (state.Panel != null)
                     await PanelComponent.UpdateAsync(state);
                 if (state.Demon != null)
@@ -326,7 +344,7 @@ public class InstallCommand : MidnightCommand<InstallSettings>
         ]));
     }
 
-    private static void PrintSummary(PanelSettings? panel, DemonSettings? demon, string? source)
+    private static void PrintSummary(PanelSettings? panel, DemonSettings? demon, string? source, SourceState versions)
     {
         AnsiConsole.WriteLine();
         var rows = new List<(string, string)>();
@@ -351,7 +369,20 @@ public class InstallCommand : MidnightCommand<InstallSettings>
         }
 
         rows.Add(("", ""));
-        rows.Add(("Source", Markup.Escape(source ?? $"{Sources.PanelRepository}, {Sources.DemonRepository} ({Sources.Branch})")));
+
+        if (source != null)
+        {
+            rows.Add(("Source", $"local checkout {Markup.Escape(source)}"));
+        }
+        else
+        {
+            if (panel != null)
+                rows.Add(("Panel version", $"[bold]{Markup.Escape(versions.Describe(versions.PanelVersion))}[/]"));
+            if (demon != null)
+                rows.Add(("Demon version", $"[bold]{Markup.Escape(versions.Describe(versions.DemonVersion))}[/]"));
+
+            rows.Add(("Source", Markup.Escape($"{versions.PanelRepository}, {versions.DemonRepository}")));
+        }
 
         Ui.Summary(rows);
         AnsiConsole.WriteLine();

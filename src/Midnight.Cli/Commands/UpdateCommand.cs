@@ -12,6 +12,9 @@ public class UpdateCommand : MidnightCommand<TargetSettings>
         var (panel, demon) = ResolveTarget(settings.Target, state);
         var host = await HostInfo.DetectAsync();
 
+        // Release channel: pick one of the newer releases, custom: newest code
+        await VersionSelector.SelectForUpdateAsync(state, panel, demon, latest: false);
+
         if (panel)
             await PanelComponent.UpdateAsync(state);
 

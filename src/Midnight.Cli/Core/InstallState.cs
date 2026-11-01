@@ -90,6 +90,29 @@ public class SourceState
         }
     }
     public string Branch { get; set; } = "";
+
+    /// <summary>"custom" = newest code of Branch, "release" = the published versions below</summary>
+    public string Channel { get; set; } = SourceChannels.Custom;
+
+    /// <summary>Release tags, only used on the release channel</summary>
+    public string? PanelVersion { get; set; }
+    public string? DemonVersion { get; set; }
+
+    /// <summary>Git ref of the panel sources (the demon builds against them too)</summary>
+    [JsonIgnore]
+    public string PanelRef => Channel == SourceChannels.Release && !string.IsNullOrEmpty(PanelVersion) ? PanelVersion : Branch;
+
+    [JsonIgnore]
+    public string DemonRef => Channel == SourceChannels.Release && !string.IsNullOrEmpty(DemonVersion) ? DemonVersion : Branch;
+
+    public string Describe(string? version)
+        => Channel == SourceChannels.Release && !string.IsNullOrEmpty(version) ? $"release {version}" : $"custom ({Branch}, newest code)";
+}
+
+public static class SourceChannels
+{
+    public const string Release = "release";
+    public const string Custom = "custom";
 }
 
 public static class AppInfo

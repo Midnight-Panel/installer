@@ -54,26 +54,37 @@ public static class SourceManager
             return;
         }
 
-        if (state.Source.Mode != "git" || string.IsNullOrEmpty(state.Source.PanelRepository))
-        {
-            state.Source = new SourceState
-            {
-                Mode = "git",
-                PanelRepository = Sources.PanelRepository,
-                DemonRepository = Sources.DemonRepository,
-                Branch = Sources.Branch
-            };
-        }
+        EnsureGitSource(state);
 
-        await CloneOrPullAsync(state.Source.PanelRepository, Path.Combine(Paths.SourceDir, "panel"), state.Source.Branch);
-        await CloneOrPullAsync(state.Source.DemonRepository, Path.Combine(Paths.SourceDir, "demon"), state.Source.Branch);
+        await CloneOrPullAsync(state.Source.PanelRepository, Path.Combine(Paths.SourceDir, "panel"), state.Source.PanelRef);
+        await CloneOrPullAsync(state.Source.DemonRepository, Path.Combine(Paths.SourceDir, "demon"), state.Source.DemonRef);
     }
 
-    private static async Task CloneOrPullAsync(string url, string target, string branch)
+    /// <summary>Fills in the repositories for git installs, keeps the chosen channel and versions</summary>
+    public static void EnsureGitSource(InstallState state)
+    {
+        if (state.Source.Mode == "git" && !string.IsNullOrEmpty(state.Source.PanelRepository))
+            return;
+
+        state.Source = new SourceState
+        {
+            Mode = "git",
+            PanelRepository = Sources.PanelRepository,
+            DemonRepository = Sources.DemonRepository,
+            Branch = Sources.Branch,
+            Channel = state.Source.Channel,
+            PanelVersion = state.Source.PanelVersion,
+            DemonVersion = state.Source.DemonVersion
+        };
+    }
+
+    /// <param name="reference">Branch or release tag</param>
+    private static async Task CloneOrPullAsync(string url, string target, string reference)
     {
         if (Directory.Exists(Path.Combine(target, ".git")))
         {
-            await Shell.RunAsync("git", "-C", target, "fetch", "--depth", "1", "origin", branch);
+            // Works for branches and tags alike, the checkout always matches the remote exactly
+            await Shell.RunAsync("git", "-C", target, "fetch", "--depth", "1", "--force", "origin", reference);
             await Shell.RunAsync("git", "-C", target, "reset", "--hard", "FETCH_HEAD");
             return;
         }
@@ -81,7 +92,7 @@ public static class SourceManager
         if (Directory.Exists(target) && !Shell.DryRun)
             Directory.Delete(target, true);
 
-        await Shell.RunAsync("git", "clone", "--depth", "1", "--branch", branch, "--", url, target);
+        await Shell.RunAsync("git", "clone", "--depth", "1", "--branch", reference, "--", url, target);
     }
 
     private static void CopyDirectory(string from, string to)

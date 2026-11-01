@@ -28,6 +28,15 @@ Before installing, the wizard checks the domain's DNS against the public IP of t
 Every step shows a spinner with its duration, failures show the end of the log (`/var/log/midnight-installer.log`).
 Passwords never end up in the log or on the command line.
 
+### Versions
+
+The wizard asks which version to install:
+
+- **Release** – one of the published GitHub releases of the panel and demon, picked from a list (newest stable release preselected, pre-releases marked). `midnight update` then offers the newer releases.
+- **Custom** – the newest code of the branch (`MIDNIGHT_BRANCH`, default `main`). `midnight update` pulls the newest code.
+
+The demon is built against the panel's shared code, so a demon release uses the panel release with the same tag (or the newest panel release, with a warning).
+
 ### Unattended
 
 All questions have options, `-y` skips the confirmation:
@@ -35,7 +44,11 @@ All questions have options, `-y` skips the confirmation:
 ```bash
 MIDNIGHT_ADMIN_PASSWORD='...' midnight install panel -y --ssl --panel-address panel.example.com --admin-email admin@example.com
 midnight install demon -y --ssl --demon-address node1.example.com --demon-config ./config.json
+midnight install all -y --panel-version v1.2.0 --demon-version v1.2.0 ...   # specific release
+midnight install all -y --channel custom ...                              # newest code
 ```
+
+Without `--channel` an unattended install uses the newest release (or the newest code when nothing is released yet).
 
 `midnight install --help` lists all options. `--dry-run` shows the whole flow without changing anything (also on
 macOS), the commands are only written to the log.
@@ -66,6 +79,7 @@ macOS), the commands are only written to the log.
 | `MIDNIGHT_DEMON_REPO` | `https://github.com/Midnight-Panel/demon.git` |
 | `MIDNIGHT_BRANCH` | `main` |
 | `MIDNIGHT_CLI_URL` | `https://github.com/Midnight-Panel/installer/releases/latest/download` |
+| `MIDNIGHT_GITHUB_TOKEN` | optional, raises the GitHub API limit for loading releases |
 | `MIDNIGHT_BUILD_FROM_SOURCE` | `0`, `1` makes `install.sh` skip the download |
 
 `midnight install --source <dir>` installs from a local checkout containing `panel/` and `demon/`.

@@ -21,6 +21,7 @@ public class StatusCommand : MidnightCommand<GlobalSettings>
         if (state.Panel != null)
         {
             table.AddRow("[bold]Panel[/]", Health(await PanelComponent.IsHealthyAsync()), Markup.Escape(state.Panel.Url));
+            table.AddRow("  [grey]version[/]", "", $"[grey]{Markup.Escape(Version(state, state.Source.PanelVersion))}[/]");
 
             if (PanelComponent.MaintenanceEnabled)
                 table.AddRow("  [grey]maintenance[/]", "[yellow]on[/]", "[grey]visitors see the maintenance page (midnight maintenance off)[/]");
@@ -49,6 +50,7 @@ public class StatusCommand : MidnightCommand<GlobalSettings>
 
             table.AddRow("[bold]Demon[/]", Health(await DemonComponent.IsHealthyAsync(state.Demon)), details);
             table.AddRow("  [grey]service[/]", service == "active" ? "[green]active[/]" : $"[red]{Markup.Escape(service)}[/]", "");
+            table.AddRow("  [grey]version[/]", "", $"[grey]{Markup.Escape(Version(state, state.Source.DemonVersion))}[/]");
         }
 
         AnsiConsole.Write(table);
@@ -70,4 +72,7 @@ public class StatusCommand : MidnightCommand<GlobalSettings>
             return null;
         }
     }
+
+    private static string Version(InstallState state, string? release)
+        => state.Source.Mode == "local" ? "local checkout" : state.Source.Describe(release);
 }
