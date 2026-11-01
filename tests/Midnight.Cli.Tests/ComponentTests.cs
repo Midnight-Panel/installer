@@ -46,6 +46,37 @@ public class PanelStackTests
         Assert.Contains($"subnet: {Paths.PanelSubnet}", compose);
         // compose files are indented with spaces only
         Assert.DoesNotContain('\t', compose);
+        Assert.Contains("./maintenance:/srv/maintenance:ro", compose);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void CaddyShowsTheMaintenancePage(bool ssl)
+    {
+        var caddyfile = PanelComponent.BuildCaddyfile(Settings(ssl));
+
+        // flag file → 503 for everything, panel down → same page
+        Assert.Contains("try_files /enabled", caddyfile);
+        Assert.Contains("error 503", caddyfile);
+        Assert.Contains("handle_errors 502 503 504 {", caddyfile);
+        Assert.Contains("rewrite * /index.html", caddyfile);
+        Assert.Contains("handle_path /__maintenance/* {", caddyfile);
+
+        // real tabs, no escaped "\t" from a raw string
+        Assert.DoesNotContain("\\t", caddyfile);
+        Assert.Equal(caddyfile.Count(c => c == '{'), caddyfile.Count(c => c == '}'));
+    }
+
+    [Fact]
+    public void MaintenancePageIsEmbedded()
+    {
+        using var stream = typeof(PanelComponent).Assembly.GetManifestResourceStream("maintenance.html");
+
+        Assert.NotNull(stream);
+        var html = new StreamReader(stream).ReadToEnd();
+        Assert.Contains("/api/health", html);
+        Assert.Contains("/__maintenance/logo.png", html);
     }
 }
 

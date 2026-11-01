@@ -53,6 +53,7 @@ macOS), the commands are only written to the log.
 | `midnight create-admin` | Another administrator |
 | `midnight backup [dir]` | Database dump and panel storage |
 | `midnight doctor` | Checks the installation and tells how to fix problems |
+| `midnight maintenance on\|off\|status` | Every visitor sees the maintenance page (also on automatically during `midnight update`) |
 | `midnight ssl renew` | Renews the demon certificate now |
 | `midnight uninstall <panel\|demon> [--delete-data]` | Removes it, data is kept unless asked |
 | `midnight self-update` / `midnight version` | |

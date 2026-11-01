@@ -22,6 +22,9 @@ public class StatusCommand : MidnightCommand<GlobalSettings>
         {
             table.AddRow("[bold]Panel[/]", Health(await PanelComponent.IsHealthyAsync()), Markup.Escape(state.Panel.Url));
 
+            if (PanelComponent.MaintenanceEnabled)
+                table.AddRow("  [grey]maintenance[/]", "[yellow]on[/]", "[grey]visitors see the maintenance page (midnight maintenance off)[/]");
+
             var containers = await PanelComponent.ComposeAsync(["ps", "--format", "{{.Service}}\t{{.State}}\t{{.Status}}"], new ShellOptions { AllowFailure = true });
             foreach (var line in containers.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
             {

@@ -58,9 +58,26 @@ public static class PanelComponent
         Ui.Section("Updating the panel");
 
         await Ui.StepAsync("Downloading the latest source code", () => SourceManager.FetchAsync(state, null));
+
+        // The old panel keeps running while the new image builds, maintenance only covers the restart
         await Ui.StepAsync("Rebuilding the panel", BuildAsync);
-        await Ui.StepAsync("Restarting", () => ComposeAsync("up", "-d", "--remove-orphans"));
-        await Ui.StepAsync("Waiting for the panel", WaitForHealthAsync);
+        await Ui.StepAsync("Updating the configuration", () => WriteStackAsync(FromState(state.Panel!)));
+        await Ui.StepAsync("Showing the maintenance page", () => SetMaintenanceAsync(true));
+
+        try
+        {
+            await Ui.StepAsync("Restarting", () => ComposeAsync("up", "-d", "--remove-orphans"));
+            await Ui.StepAsync("Reloading the proxy", ReloadProxyAsync);
+            await Ui.StepAsync("Waiting for the panel", WaitForHealthAsync);
+        }
+        catch (InstallerAbortedException)
+        {
+            // Visitors keep seeing the maintenance page instead of a broken panel
+            Ui.Warning("The maintenance page stays online. Fix the problem, then run [bold]midnight maintenance off[/]");
+            throw;
+        }
+
+        await Ui.StepAsync("Hiding the maintenance page", () => SetMaintenanceAsync(false));
         await Ui.StepAsync("Removing old images", () => Shell.RunAsync("docker", "image", "prune", "-f"));
 
         state.Save();
@@ -98,6 +115,39 @@ public static class PanelComponent
         => Shell.RunAsync("docker", ["compose", "--project-directory", Paths.PanelDir, "-f", ComposeFile, .. arguments], options);
 
     public static Task BuildAsync() => ComposeAsync("build", "--pull", "panel");
+
+    public static bool MaintenanceEnabled => File.Exists(Paths.MaintenanceFlag);
+
+    /// <summary>The proxy answers every request with the maintenance page while the flag file exists</summary>
+    public static async Task SetMaintenanceAsync(bool enabled)
+    {
+        InstallerLog.Write($"Maintenance page {(enabled ? "on" : "off")}");
+
+        if (Shell.DryRun)
+            return;
+
+        if (!enabled)
+        {
+            File.Delete(Paths.MaintenanceFlag);
+            return;
+        }
+
+        await WriteMaintenanceAssetsAsync();
+        await File.WriteAllTextAsync(Paths.MaintenanceFlag, $"{DateTimeOffset.UtcNow:O}\n");
+    }
+
+    /// <summary>Picks up Caddyfile changes without restarting the proxy (allowed to fail, e.g. while it starts)</summary>
+    public static Task ReloadProxyAsync()
+        => ComposeAsync(["exec", "-T", "proxy", "caddy", "reload", "--config", "/etc/caddy/Caddyfile"], new ShellOptions { AllowFailure = true });
+
+    private static PanelSettings FromState(PanelState panel) => new()
+    {
+        Ssl = panel.Ssl,
+        Address = panel.Address,
+        HttpPort = panel.HttpPort,
+        Registration = panel.Registration,
+        AdminEmail = panel.AdminEmail
+    };
 
     /// <summary>Asks the panel for /api/health from inside its docker network (the panel port isn't published)</summary>
     public static async Task<bool> IsHealthyAsync()
@@ -168,6 +218,25 @@ public static class PanelComponent
 
         await File.WriteAllTextAsync(ComposeFile, BuildCompose(settings));
         await File.WriteAllTextAsync(Path.Combine(Paths.PanelDir, "Caddyfile"), BuildCaddyfile(settings));
+        await WriteMaintenanceAssetsAsync();
+    }
+
+    /// <summary>Maintenance page plus the panel logos (the panel itself is down while the page is shown)</summary>
+    private static async Task WriteMaintenanceAssetsAsync()
+    {
+        Directory.CreateDirectory(Paths.MaintenanceDir);
+
+        await using (var resource = typeof(PanelComponent).Assembly.GetManifestResourceStream("maintenance.html")!)
+        await using (var file = File.Create(Path.Combine(Paths.MaintenanceDir, "index.html")))
+            await resource.CopyToAsync(file);
+
+        var logos = Path.Combine(Paths.SourceDir, "panel", "src", "Midnight.Web", "public", "images", "logo");
+
+        foreach (var logo in new[] { "logo.png", "logo-dark.png" })
+        {
+            if (File.Exists(Path.Combine(logos, logo)))
+                File.Copy(Path.Combine(logos, logo), Path.Combine(Paths.MaintenanceDir, logo), true);
+        }
     }
 
     internal static string BuildCaddyfile(PanelSettings settings)
@@ -187,9 +256,38 @@ public static class PanelComponent
             builder.AppendLine($":{settings.HttpPort} {{");
         }
 
-        builder.AppendLine("\tencode zstd gzip");
-        builder.AppendLine("\treverse_proxy panel:8080");
-        builder.AppendLine("}");
+        builder.AppendLine("""
+                	encode zstd gzip
+
+                	# Assets of the maintenance page, reachable even while maintenance is on
+                	handle_path /__maintenance/* {
+                		root * /srv/maintenance
+                		file_server
+                	}
+
+                	# "midnight maintenance on" / during updates: every request gets the maintenance page
+                	@maintenance file {
+                		root /srv/maintenance
+                		try_files /enabled
+                	}
+                	handle @maintenance {
+                		error 503
+                	}
+
+                	handle {
+                		reverse_proxy panel:8080
+                	}
+
+                	# Also shown when the panel container is down (restart, crash)
+                	handle_errors 502 503 504 {
+                		root * /srv/maintenance
+                		rewrite * /index.html
+                		header Cache-Control "no-store"
+                		header Retry-After "30"
+                		file_server
+                	}
+                }
+                """);
 
         return builder.ToString();
     }
@@ -251,6 +349,7 @@ public static class PanelComponent
             {{ports}}
                 volumes:
                   - ./Caddyfile:/etc/caddy/Caddyfile:ro
+                  - ./maintenance:/srv/maintenance:ro
                   - caddy-data:/data
                   - caddy-config:/config
                 depends_on: [panel]

@@ -7,6 +7,10 @@ public static class Paths
     public const string SourceDir = BaseDir + "/src";
     public const string PanelDir = BaseDir + "/panel";
 
+    /// <summary>Maintenance page for the proxy; while the flag file exists every request gets the page (503)</summary>
+    public const string MaintenanceDir = PanelDir + "/maintenance";
+    public const string MaintenanceFlag = MaintenanceDir + "/enabled";
+
     public const string EtcDir = "/etc/midnight";
     public const string StateFile = EtcDir + "/midnight.json";
     public const string DemonConfig = EtcDir + "/config.json";

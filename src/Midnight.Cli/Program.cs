@@ -26,6 +26,7 @@ app.Configure(config =>
     config.AddCommand<CreateAdminCommand>("create-admin").WithDescription("Create another panel administrator");
     config.AddCommand<BackupCommand>("backup").WithDescription("Back up the panel database and storage");
     config.AddCommand<DoctorCommand>("doctor").WithDescription("Check the installation for common problems");
+    config.AddCommand<MaintenanceCommand>("maintenance").WithDescription("Show the maintenance page to every visitor").WithExample("maintenance", "on");
     config.AddCommand<SslCommand>("ssl").WithDescription("Renew the demon certificate now").WithExample("ssl", "renew");
     config.AddCommand<UninstallCommand>("uninstall").WithDescription("Remove the panel or the demon");
     config.AddCommand<SelfUpdateCommand>("self-update").WithDescription("Update the midnight command itself");
