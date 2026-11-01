@@ -9,7 +9,7 @@ installation wizard and manages everything afterwards.
 On a fresh Linux server (Debian/Ubuntu or the RHEL family, x86_64 or arm64) as root:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Midnight-Panel/installer/main/install.sh)
+bash <(curl -fsSL https://get.midnightpanel.xyz)
 ```
 
 The bootstrap script downloads `midnight` from the latest release (checksum verified) and starts `midnight install`.
