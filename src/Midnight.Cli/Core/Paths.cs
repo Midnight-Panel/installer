@@ -20,6 +20,12 @@ public static class Paths
     public const string DemonService = "midnight-demon";
     public const string DemonData = "/var/lib/midnight";
 
+    /// <summary>Names from before the demon was renamed, migrated by the installer</summary>
+    public const string LegacyDemonService = "midnight-daemon";
+    public const string LegacyDemonUnit = "/etc/systemd/system/midnight-daemon.service";
+    public const string LegacyDemonBinary = "/usr/local/bin/midnight-daemon";
+    public const string CertbotRenewalDir = "/etc/letsencrypt/renewal";
+
     public const string CliBinary = "/usr/local/bin/midnight";
     public const string LogFile = "/var/log/midnight-installer.log";
     public const string BackupDir = "/var/backups/midnight";

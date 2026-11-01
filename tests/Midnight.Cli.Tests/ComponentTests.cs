@@ -125,3 +125,57 @@ public class DemonConfigurationTests
         Assert.Contains("[Install]", unit);
     }
 }
+
+public class LegacyNameTests
+{
+    [Fact]
+    public void StateFromBeforeTheRenameIsRead()
+    {
+        const string json = """
+            {
+              "installerVersion": "1.0.0",
+              "daemon": { "ssl": true, "address": "node1.example.com", "port": 8443 },
+              "source": { "mode": "git", "panelRepository": "p.git", "daemonRepository": "d.git", "branch": "main" }
+            }
+            """;
+
+        var state = System.Text.Json.JsonSerializer.Deserialize<InstallState>(json, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+
+        Assert.NotNull(state.Demon);
+        Assert.Equal("node1.example.com", state.Demon!.Address);
+        Assert.Equal(8443, state.Demon.Port);
+        Assert.Equal("d.git", state.Source.DemonRepository);
+
+        // Saved again only under the new names
+        var saved = System.Text.Json.JsonSerializer.Serialize(state, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        Assert.DoesNotContain("daemon", saved, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"demon\"", saved);
+    }
+
+    [Fact]
+    public void NewNameWinsOverTheOldOne()
+    {
+        const string json = """{ "demon": { "address": "new.example.com" }, "daemon": { "address": "old.example.com" } }""";
+
+        var state = System.Text.Json.JsonSerializer.Deserialize<InstallState>(json, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+
+        Assert.Equal("new.example.com", state.Demon!.Address);
+    }
+
+    [Fact]
+    public void CertbotDeployHookPointsToTheNewService()
+    {
+        const string renewal = """
+            [renewalparams]
+            authenticator = standalone
+            renew_hook = systemctl restart midnight-daemon
+            pre_hook = docker compose -f /opt/midnight/panel/docker-compose.yml stop proxy
+            """;
+
+        var migrated = DemonComponent.MigrateRenewalHook(renewal);
+
+        Assert.Contains("renew_hook = systemctl restart midnight-demon", migrated);
+        Assert.Contains("pre_hook = docker compose", migrated);
+        Assert.DoesNotContain("midnight-daemon", migrated);
+    }
+}

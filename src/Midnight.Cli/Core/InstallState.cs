@@ -11,6 +11,14 @@ public class InstallState
     public DemonState? Demon { get; set; }
     public SourceState Source { get; set; } = new();
 
+    /// <summary>Installations from before the rename stored the demon as "daemon", read only</summary>
+    [JsonPropertyName("daemon"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DemonState? LegacyDaemon
+    {
+        get => null;
+        set => Demon ??= value;
+    }
+
     [JsonIgnore]
     public bool HasAnything => Panel != null || Demon != null;
 
@@ -69,6 +77,18 @@ public class SourceState
     public string Mode { get; set; } = "git";
     public string PanelRepository { get; set; } = "";
     public string DemonRepository { get; set; } = "";
+
+    /// <summary>Name from before the rename, read only</summary>
+    [JsonPropertyName("daemonRepository"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LegacyDaemonRepository
+    {
+        get => null;
+        set
+        {
+            if (string.IsNullOrEmpty(DemonRepository))
+                DemonRepository = value ?? "";
+        }
+    }
     public string Branch { get; set; } = "";
 }
 

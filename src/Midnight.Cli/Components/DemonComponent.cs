@@ -33,6 +33,10 @@ public static class DemonComponent
 
         await Ui.StepAsync("Downloading the source code", () => SourceManager.FetchAsync(state, localSource));
         await Ui.StepAsync("Building the demon (takes a few minutes)", () => BuildAsync(host));
+
+        if (HasLegacyService)
+            await Ui.StepAsync("Replacing the old midnight-daemon service", MigrateLegacyServiceAsync);
+
         await Ui.StepAsync("Installing the systemd service", WriteUnitAsync);
 
         if (settings.Ssl)
@@ -52,6 +56,13 @@ public static class DemonComponent
         await Ui.StepAsync("Downloading the latest source code", () => SourceManager.FetchAsync(state, null));
         await Ui.StepAsync("Building the demon", () => BuildAsync(host));
 
+        // Installations from before the rename run "midnight-daemon", it is replaced by "midnight-demon"
+        if (HasLegacyService)
+            await Ui.StepAsync("Replacing the old midnight-daemon service", MigrateLegacyServiceAsync);
+
+        if (!File.Exists(Paths.DemonUnit))
+            await Ui.StepAsync("Installing the systemd service", WriteUnitAsync);
+
         if (File.Exists(Paths.DemonConfig))
         {
             await Ui.StepAsync("Restarting the demon", () => Shell.RunAsync("systemctl", "restart", Paths.DemonService));
@@ -64,6 +75,9 @@ public static class DemonComponent
     public static async Task UninstallAsync(InstallState state, bool deleteData)
     {
         Ui.Section("Uninstalling the demon");
+
+        if (HasLegacyService)
+            await Ui.StepAsync("Removing the old midnight-daemon service", MigrateLegacyServiceAsync);
 
         await Ui.StepAsync("Stopping the service", async () =>
         {
@@ -282,6 +296,41 @@ public static class DemonComponent
 
         await Shell.RunAsync("install", "-m", "755", Path.Combine(output, "Midnight.Demon"), Paths.DemonBinary);
     }
+
+    public static bool HasLegacyService => File.Exists(Paths.LegacyDemonUnit) || File.Exists(Paths.LegacyDemonBinary);
+
+    /// <summary>
+    /// Stops and removes the service, binary and certbot hook of the old "midnight-daemon" name.
+    /// Config, data and certificates have the same paths and are kept.
+    /// </summary>
+    internal static async Task MigrateLegacyServiceAsync()
+    {
+        await Shell.RunAsync("systemctl", ["disable", "--now", Paths.LegacyDemonService], new ShellOptions { AllowFailure = true });
+
+        if (!Shell.DryRun)
+        {
+            DeleteFile(Paths.LegacyDemonUnit);
+            DeleteFile(Paths.LegacyDemonBinary);
+
+            if (Directory.Exists(Paths.CertbotRenewalDir))
+            {
+                foreach (var renewal in Directory.EnumerateFiles(Paths.CertbotRenewalDir, "*.conf"))
+                {
+                    var content = await File.ReadAllTextAsync(renewal);
+                    var migrated = MigrateRenewalHook(content);
+
+                    if (migrated != content)
+                        await File.WriteAllTextAsync(renewal, migrated);
+                }
+            }
+        }
+
+        await Shell.RunAsync("systemctl", "daemon-reload");
+    }
+
+    /// <summary>The deploy hook restarts the demon after a renewal, only the service name changes</summary>
+    internal static string MigrateRenewalHook(string renewalConfig)
+        => renewalConfig.Replace($"systemctl restart {Paths.LegacyDemonService}", $"systemctl restart {Paths.DemonService}");
 
     private static async Task WriteUnitAsync()
     {
